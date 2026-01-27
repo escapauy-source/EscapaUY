@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
-// Configuración de Supabase
+// Configuración de Supabase (Modo Demo si no hay llaves)
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
@@ -16,10 +16,22 @@ interface User {
   };
 }
 
+// Definimos qué información del clima queremos mostrar
+interface Weather {
+  condition: 'sunny' | 'cloudy' | 'rainy' | 'stormy';
+  temp: number;
+  rainProbability: number;
+  wind: number;
+  forecast: any[];
+}
+
 interface AppContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  showAuthModal: boolean;
+  weather: Weather;
+  setShowAuthModal: (show: boolean) => void;
   login: (email: string) => Promise<void>;
   logout: () => Promise<void>;
   syncUserSession: (user: User) => void;
@@ -31,7 +43,22 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const navigate = useNavigate();
+
+  // DATOS DE CLIMA PARA LA DEMO (Puedes cambiar 'sunny' por 'rainy' para mostrar el Plan B)
+  const [weather] = useState<Weather>({
+    condition: 'sunny',
+    temp: 24,
+    rainProbability: 10,
+    wind: 15,
+    forecast: [
+      { time: '14:00', temp: 25, condition: 'sunny' },
+      { time: '16:00', temp: 24, condition: 'cloudy' },
+      { time: '18:00', temp: 22, condition: 'rainy' },
+      { time: '20:00', temp: 20, condition: 'rainy' }
+    ]
+  });
 
   const syncUserSession = (userData: User) => {
     setUser(userData);
@@ -44,91 +71,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const login = async (email: string) => {
-    if (!supabase) {
-      console.log('[ADN_DEBUG] Supabase not configured, simulating login');
-      const demoUser = {
-        id: 'demo-user-' + Date.now(),
-        email: email,
-        user_metadata: { full_name: email.split('@')[0] }
-      };
-      syncUserSession(demoUser);
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`
-        }
-      });
-
-      if (error) {
-        toast.error('Error al enviar el código: ' + error.message);
-        return;
-      }
-
-      toast.success('Código enviado a tu email');
-    } catch (err) {
-      console.error('Login error:', err);
-      toast.error('Error inesperado');
-    } finally {
-      setIsLoading(false);
-    }
+    console.log('[DEMO] Simulando login para:', email);
+    const demoUser = {
+      id: 'demo-' + Date.now(),
+      email: email,
+      user_metadata: { full_name: email.split('@')[0] }
+    };
+    syncUserSession(demoUser);
+    toast.success('¡Bienvenido a la Demo!');
   };
 
   const logout = async () => {
-    if (supabase) {
-      await supabase.auth.signOut();
-    }
     clearLocalState();
     navigate('/');
     toast.success('Sesión cerrada');
   };
 
-  // Sync with Supabase Auth State
   useEffect(() => {
-    const checkInitialSession = async () => {
-      try {
-        // Verificar si supabase está disponible (no en modo demo roto)
-        if (!supabase?.auth?.getSession) {
-          console.log('[ADN_DEBUG] Supabase not available, skipping session check');
-          setIsLoading(false);
-          return;
-        }
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          syncUserSession(session.user);
-        }
-        setIsLoading(false);
-      } catch (error) {
-        console.log('[ADN_DEBUG] Session check failed:', error);
-        setIsLoading(false);
-      }
-    };
-
-    checkInitialSession();
-
-    if (supabase) {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-        if (session) {
-          syncUserSession(session.user);
-        } else if (event === 'SIGNED_OUT') {
-          clearLocalState();
-        }
-      });
-
-      return () => {
-        subscription.unsubscribe();
-      };
-    }
+    // Simular carga inicial
+    const timer = setTimeout(() => setIsLoading(false), 1000);
+    return () => clearTimeout(timer);
   }, []);
 
   const value: AppContextType = {
     user,
     isAuthenticated: !!user,
     isLoading,
+    showAuthModal,
+    weather,
+    setShowAuthModal,
     login,
     logout,
     syncUserSession,
