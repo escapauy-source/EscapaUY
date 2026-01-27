@@ -1,0 +1,300 @@
+{
+    "header": {
+        "explore": "Explore",
+        "my_adn": "My Travel ADN",
+        "blog": "Blog",
+        "control_tower": "Control Tower",
+        "profile": "My Profile",
+        "logout": "Log Out",
+        "login": "Login",
+        "login_register": "Login / Register"
+    },
+    "footer": {
+        "tax_free_title": "Tax Free Benefits",
+        "tax_free_description": "As a foreign tourist, you enjoy a full VAT (22%) exemption on accommodation and a 9-point reduction in gastronomy, automatically applied when paying with a foreign card.",
+        "rights_reserved": "All rights reserved.",
+        "legal_title": "Legal",
+        "terms": "Terms of Service",
+        "privacy": "Privacy Policy",
+        "consumer": "Consumer Defense",
+        "contact_title": "Contact",
+        "whatsapp": "Direct WhatsApp",
+        "fiscal_data": "Fiscal Data",
+        "regulated": "Entity regulated by the Central Bank of Uruguay"
+    },
+    "adn": {
+        "title": "Travel ADN",
+        "step_of": "Step {{current}} of {{total}}",
+        "back": "Back",
+        "next": "Next",
+        "dimension_label": "Dimension:",
+        "hotel": {
+            "label": "🏨 Accommodation",
+            "title": "Where would you like to stay?",
+            "desc": "Select the hotel where you will stay during your visit to Colonia"
+        },
+        "arrival": {
+            "label": "⏰ Schedule",
+            "title": "What time do you arrive?",
+            "desc": "Helps us suggest the best activities for your arrival",
+            "morning": "Morning",
+            "afternoon": "Afternoon",
+            "evening": "Evening"
+        },
+        "group": {
+            "label": "👥 Travel Group",
+            "title": "Who are you traveling with?",
+            "desc": "This personalizes the experiences based on your group",
+            "solo": "I travel Solo",
+            "solo_desc": "Personal adventure",
+            "couple": "As a Couple",
+            "couple_desc": "Romantic getaway",
+            "family": "Family",
+            "family_desc": "With adults and/or children",
+            "friends": "Friends",
+            "friends_desc": "Group of adults"
+        },
+        "adults": {
+            "title": "How many adults?",
+            "min_max": "Minimum 1 adult, maximum 10"
+        },
+        "children": {
+            "title": "How many children?",
+            "desc": "Children will receive special activity recommendations",
+            "max": "Maximum 5 children"
+        },
+        "ages": {
+            "title": "How old are they?",
+            "label": "Child {{index}} age",
+            "select": "Select age",
+            "year": "year",
+            "years": "years"
+        },
+        "balance": "Balance",
+        "balance_desc": "Mix of both aspects",
+        "final_cta": "See Personalized Activities",
+        "nights": {
+            "title": "How many nights?",
+            "min_max": "Minimum 1, Maximum 7 nights"
+        },
+        "traits": {
+            "openness": {
+                "name": "Openness to Experience",
+                "desc": "Are you a discoverer always looking for the new or do you prefer the tried and true?",
+                "optA": "Born Discoverer",
+                "optADesc": "I'm excited to try new things and step out of my comfort zone",
+                "optB": "Selective Curious",
+                "optBDesc": "I like to discover, but with some prior planning",
+                "optC": "Reliable Classic",
+                "optCDesc": "I prefer tried and recommended experiences"
+            },
+            "conscientiousness": {
+                "name": "Travel Pace",
+                "desc": "Do you prefer an itinerary full of activities or do you prefer to improvise and relax?",
+                "optA": "Intense Explorer",
+                "optADesc": "I want to use every minute with organized activities",
+                "optB": "Perfect Balance",
+                "optBDesc": "I combine planned activities with free time",
+                "optC": "Natural Flow",
+                "optCDesc": "I prefer to improvise and go with the flow"
+            },
+            "extraversion": {
+                "name": "Socialization",
+                "desc": "Do you love meeting new people or do you prefer more private experiences?",
+                "optA": "Social Life",
+                "optADesc": "I love meeting new people and sharing experiences",
+                "optB": "Selectively Social",
+                "optBDesc": "I enjoy small groups and meaningful conversations",
+                "optC": "Intimate Explorer",
+                "optCDesc": "I prefer private or couple/family experiences"
+            },
+            "agreeableness": {
+                "name": "Gastronomic Style",
+                "desc": "Are you looking to try new flavors or do you prefer the familiar and safe?",
+                "optA": "Adventurous Foodie",
+                "optADesc": "I look for authentic restaurants and unique dishes",
+                "optB": "Balanced Gourmet",
+                "optBDesc": "I enjoy good food with varied options",
+                "optC": "Comfort First",
+                "optCDesc": "I prefer known places and familiar flavors"
+            },
+            "neuroticism": {
+                "name": "Unexpected Management",
+                "desc": "Are you flexible to changes or do you prefer to have everything planned?",
+                "optA": "Total Adventure",
+                "optADesc": "Changes of plan are part of the adventure",
+                "optB": "Flexible with Net",
+                "optBDesc": "I accept changes if there is a good plan B",
+                "optC": "Pro Planner",
+                "optCDesc": "I prefer to have everything controlled and foreseen"
+            }
+        },
+        "completing": "Completing profile"
+    },
+    "landing": {
+        "step_label": "Step {{index}}",
+        "hero": {
+            "weather_label": "Current weather in Colonia:",
+            "title": "Colonia without Risks: Your perfect trip,",
+            "title_accent": "rain or shine",
+            "description": "The only AI-powered platform that adapts your itinerary to the weather in real-time and protects your money with legal guarantees.",
+            "cta_design": "Design my Getaway",
+            "cta_partner": "I am a Partner / Merchant",
+            "badge_bcu": "BCU Regulated",
+            "badge_mintur": "MINTUR Certified",
+            "badge_iva": "VAT Refund"
+        },
+        "partner_preview": {
+            "title": "Partner Panel",
+            "demo": "Demo",
+            "today": "Today",
+            "visitors": "visitors",
+            "weather": "Weather",
+            "rain_prob": "rain prob.",
+            "alert_active": "Alert: Active Diversion",
+            "alert_desc": "Expect +{{count}} visitors between 4 PM - 6 PM due to Plan A to Plan B switch",
+            "current_occupancy": "Current occupancy"
+        },
+        "tourist": {
+            "title": "How does it work for the Tourist?",
+            "subtitle": "Three simple steps for your perfect getaway, no matter the weather",
+            "step1_title": "Discover your Travel ADN",
+            "step1_desc": "A gamified 5-question test based on the Big Five personality model. Our AI will learn your real preferences.",
+            "step2_title": "Weather-Resilient AI",
+            "step2_desc": "Every outdoor activity has a linked indoor Plan B. If it rains, our AI automatically switches your walk for a wine tasting.",
+            "step3_title": "Automatic Tax Benefits",
+            "step3_desc": "Foreign tourists get Zero VAT in hotels and a 9-point refund in gastronomy. Everything calculated automatically.",
+            "cta": "Start now"
+        },
+        "partner": {
+            "label": "For Partners and Merchants",
+            "title": "Turn rainy days into full sales days",
+            "description": "Our AI diverts traffic to your indoor spaces when the weather threatens. Manage your capacity and reduce cancellations.",
+            "feature1_title": "Smart Capacity Management",
+            "feature1_desc": "We respect your comfort levels. Define your maximum capacity and the system will never send more visitors than you can handle.",
+            "feature2_title": "Weather Traffic Light",
+            "feature2_desc": "Visualize in real-time the probability of traffic diversion to your indoor facilities. Get ready before they arrive.",
+            "feature3_title": "Guaranteed Payments",
+            "feature3_desc": "Segregated funds according to BCU regulations. Receive your money in a maximum of 30 days with total transparency.",
+            "cta": "Register my Business"
+        },
+        "cta_final": {
+            "title": "Your perfect getaway awaits in Colonia",
+            "description": "No registration, no commitment. Discover how our AI designs tailor-made itineraries that adapt to the weather.",
+            "button": "Design my Free Getaway"
+        },
+        "testimonials": {
+            "title": "What our travelers say",
+            "subtitle": "Real experiences from people who have already designed their getaway with our AI.",
+            "view_place": "View place"
+        }
+    },
+    "blog": {
+        "title": "EscapaUY Blog",
+        "subtitle": "Inspiration, guides and the best-kept secrets of Colonia del Sacramento.",
+        "empty_title": "Starting the adventure...",
+        "empty_desc": "Soon you will find the best stories and recommendations here.",
+        "read_more": "Read full article",
+        "loading": "Loading articles...",
+        "back": "Back to blog",
+        "not_found": "Post not found",
+        "author_label": "Author",
+        "author_name": "EscapaUY Team",
+        "category_label": "Destination Guide",
+        "tags_label": "Tags"
+    },
+    "explore": {
+        "title": "Explore Colonia",
+        "subtitle": "Discover unique experiences tailored to your profile",
+        "personalized": "Personalized",
+        "hotel_location": "Hotel location:",
+        "search_placeholder": "Search experiences...",
+        "no_hotel_title": "Hotel not selected",
+        "no_hotel_desc": "Please complete your travel profile first",
+        "back_home": "Back to start",
+        "weather_alert": {
+            "title": "Weather Alert: High probability of rain",
+            "desc": "We recommend indoor activities. Your B-Plans are ready."
+        },
+        "filters": {
+            "all": "All",
+            "outdoor": "Outdoor",
+            "indoor": "Indoor",
+            "time_label": "Moment:",
+            "morning": "Morning",
+            "afternoon": "Afternoon",
+            "evening": "Evening",
+            "search_alt": "Search by name, category..."
+        },
+        "info_bar": {
+            "showing": "Showing",
+            "activities": "activities",
+            "for": "personalized for",
+            "children_filter": "(filtered by children's age)",
+            "profile_filter": "according to your profile"
+        },
+        "categories": {
+            "bodega": "🍷 Wineries",
+            "experiencia": "✨ Experiences",
+            "restaurante": "🍽️ Restaurants",
+            "playa": "🏖️ Beaches",
+            "parque": "🌳 Parks",
+            "paseo": "🚶 Walks",
+            "museo": "🏛️ Museums",
+            "evento": "🎉 Events",
+            "available": "activities available"
+        },
+        "empty": {
+            "title": "No experiences found",
+            "desc": "Try adjusting filters or search"
+        },
+        "cta_itinerary": "Build itinerary"
+    },
+    "activity_card": {
+        "available": "available",
+        "plan_b_hint": "Includes indoor alternative if it rains",
+        "legal": "Images for illustrative purposes. Services may vary based on availability."
+    },
+    "weather": {
+        "humidity": "Humidity",
+        "wind": "Wind",
+        "rain": "Rain Prob.",
+        "conditions": {
+            "sunny": "Sunny",
+            "cloudy": "Cloudy",
+            "rainy": "Rainy",
+            "stormy": "Stormy",
+            "clear": "Clear"
+        }
+    },
+    "itinerary": {
+        "card": {
+            "free_time": "Free Time",
+            "free_time_desc": "Relax and enjoy at your own pace",
+            "change": "Change",
+            "no_activity": "No activity assigned",
+            "choose_activity": "Choose Activity",
+            "prefer_rest": "Prefer to Rest",
+            "weather_plan_b": "Weather triggered Plan B",
+            "outdoor": "Outdoor",
+            "indoor": "Indoor",
+            "activate_plan_b": "Activate Indoor Plan B",
+            "plan_b_desc": "Alternative if weather changes",
+            "active": "Active",
+            "plan_b_label": "Plan B:",
+            "free": "Free",
+            "iva_savings": "✨ Estimated IVA Savings: -${{savings}} USD",
+            "legal_notice": "* Illustrative image. Subject to availability and provider conditions."
+        },
+        "date_picker": {
+            "select_title": "Select your travel dates",
+            "select_desc": "To start designing your itinerary, first select the dates of your stay",
+            "label": "Travel dates",
+            "placeholder": "Select your dates",
+            "nights_suffix": "{{count}} night",
+            "nights_suffix_plural": "{{count}} nights",
+            "select_arrival": "📅 Select arrival date",
+            "select_departure": "📅 Select departure date ({{min}}-{{max}} nights)"
+        }
+    }
+}
