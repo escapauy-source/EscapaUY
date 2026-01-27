@@ -1,4 +1,5 @@
 import { Sun, Cloud, CloudRain, CloudLightning, Droplets, Wind } from 'lucide-react';
+import { useAuthStore } from '@/stores/authStore';
 import { useApp } from '@/context/AppContext';
 import { cn } from '@/utils/cn';
 import { useTranslation } from 'react-i18next';

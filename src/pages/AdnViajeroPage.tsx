@@ -21,6 +21,8 @@ import { Voucher } from '@/components/voucher/Voucher';
 interface ActivitySelection {
   activityId: string | null;
   resting: boolean;
+  planBEnabled: boolean;
+  planBActivityId: string | null;
 }
 
 interface DaySchedule {
@@ -74,7 +76,7 @@ const OptionCard = ({ icon, title, description, selected, onClick, price, color 
 };
 
 // ============ PASO 1: TIPO DE VIAJE ============
-const TravelTypeStep = ({ onSelect, selectedType }) => {
+const TravelTypeStep = ({ onSelect, selectedType, onBack }) => {
   const types = [
     { id: 'solo', icon: '🧳', title: 'Solo', description: 'Aventura personal', price: '1 persona' },
     { id: 'pareja', icon: '💑', title: 'Pareja', description: 'Escapada romántica', price: '2 personas' },
@@ -93,12 +95,22 @@ const TravelTypeStep = ({ onSelect, selectedType }) => {
           <OptionCard key={t.id} {...t} selected={selectedType === t.id} onClick={() => onSelect(t.id)} />
         ))}
       </div>
+
+      {/* Botón Atrás */}
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="w-full py-3 border-2 border-gray-200 rounded-xl font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+        >
+          Atrás
+        </button>
+      )}
     </div>
   );
 };
 
 // ============ PASO 2: BIG FIVE ============
-const BigFiveStep = ({ onSelect, scores }) => {
+const BigFiveStep = ({ onUpdateScore, onComplete, scores, onBack }) => {
   const traits = [
     { id: 'openness', name: 'Apertura', left: 'Tradicional', right: 'Explorador' },
     { id: 'conscientiousness', name: 'Ritmo', left: 'Relajado', right: 'Planificado' },
@@ -107,12 +119,28 @@ const BigFiveStep = ({ onSelect, scores }) => {
     { id: 'neuroticism', name: 'Flexibilidad', left: 'Flexible', right: 'Organizado' }
   ];
 
+  const allTraitsCompleted = traits.every(trait => scores[trait.id] !== undefined && scores[trait.id] !== null);
+  const completedCount = traits.filter(trait => scores[trait.id] !== undefined && scores[trait.id] !== null).length;
+
+  const handleScoreUpdate = (traitId, value) => {
+    onUpdateScore({ ...scores, [traitId]: value });
+  };
+
   return (
     <div className="space-y-6">
       <div className="text-center">
         <h2 className="text-2xl font-bold text-gray-800">Tu Estilo de Viajero</h2>
         <p className="text-gray-500">5 preguntas para personalizar tu experiencia</p>
       </div>
+
+      <div className="bg-gray-100 rounded-full h-2">
+        <div 
+          className="bg-gradient-to-r from-blue-500 to-indigo-600 h-2 rounded-full transition-all duration-300"
+          style={{ width: `${(completedCount / traits.length) * 100}%` }}
+        />
+      </div>
+      <p className="text-sm text-gray-500 text-center">{completedCount} de {traits.length} completado</p>
+
       <div className="space-y-8">
         {traits.map((trait) => (
           <BigFiveCardSelector
@@ -122,9 +150,33 @@ const BigFiveStep = ({ onSelect, scores }) => {
             leftOption={{ label: trait.left, description: '' }}
             rightOption={{ label: trait.right, description: '' }}
             selectedValue={scores[trait.id] ?? 50}
-            onSelect={(val) => onSelect({ ...scores, [trait.id]: val })}
+            onSelect={(val) => handleScoreUpdate(trait.id, val)}
           />
         ))}
+      </div>
+
+      <div className="flex gap-3 pt-4">
+        <button 
+          onClick={onBack} 
+          className="flex-1 py-3 border-2 border-gray-200 rounded-xl font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+        >
+          Atrás
+        </button>
+        <button 
+          onClick={() => {
+            if (allTraitsCompleted) {
+              onComplete(scores);
+            }
+          }}
+          disabled={!allTraitsCompleted}
+          className={`flex-1 py-3 rounded-xl font-semibold shadow-lg transition-all ${
+            allTraitsCompleted
+              ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700'
+              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          }`}
+        >
+          {allTraitsCompleted ? 'Continuar →' : 'Completa todas las preguntas'}
+        </button>
       </div>
     </div>
   );
@@ -307,11 +359,12 @@ const HotelStep = ({ onSelect, selectedHotel, onArrivalTimeSelect, arrivalTime, 
   );
 };
 
-// ============ PASO 5: ACTIVIDADES (NUEVO DISEÑO) ============
+// ============ PASO 5: ACTIVIDADES ============
 const ActivitiesStep = ({ onSelect, selectedActivities, config, onBack, onContinue }) => {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [currentDay, setCurrentDay] = useState(0);
   const [currentTime, setCurrentTime] = useState('morning');
+  const [showValidationError, setShowValidationError] = useState(false);
 
   const nights = config.dates.start && config.dates.end 
     ? Math.ceil((new Date(config.dates.end) - new Date(config.dates.start)) / (1000 * 60 * 60 * 24))
@@ -319,7 +372,6 @@ const ActivitiesStep = ({ onSelect, selectedActivities, config, onBack, onContin
   
   const days = Array.from({ length: Math.max(nights, 1) }, (_, i) => i + 1);
 
-  // Filtrar actividades por ciudad del hotel
   const cityActivities = useMemo(() => {
     if (!config.hotel) return activities;
     return getActivitiesByCity(config.hotel.city);
@@ -344,7 +396,6 @@ const ActivitiesStep = ({ onSelect, selectedActivities, config, onBack, onContin
   const filteredActivities = useMemo(() => {
     return cityActivities.filter(a => {
       const matchesCategory = selectedCategory === 'all' || a.category === selectedCategory;
-      // Para mediodía, solo mostrar restaurantes y bodegas
       if (currentTime === 'midday') {
         return matchesCategory && (a.category === 'gastronomy' || a.category === 'bodega');
       }
@@ -352,32 +403,57 @@ const ActivitiesStep = ({ onSelect, selectedActivities, config, onBack, onContin
     });
   }, [cityActivities, selectedCategory, currentTime]);
 
-  // Obtener selección actual
   const getSelection = (day: number, time: string): ActivitySelection => {
     const key = `${day}-${time}`;
     return selectedActivities[key] || { activityId: null, resting: false };
   };
 
-  // Toggle actividad o descansar
   const toggleSelection = (day: number, time: string, activityId: string | null, resting: boolean) => {
     const key = `${day}-${time}`;
+    const currentSelection = getSelection(day, time);
     const newActivities = { ...selectedActivities };
     
     if (resting) {
-      newActivities[key] = { activityId: null, resting: true };
+      newActivities[key] = { 
+        activityId: null, 
+        resting: true,
+        planBEnabled: false,
+        planBActivityId: null
+      };
     } else {
-      // Si ya está seleccionada, deseleccionar
-      if (getSelection(day, time).activityId === activityId) {
+      if (currentSelection.activityId === activityId) {
         delete newActivities[key];
       } else {
-        newActivities[key] = { activityId, resting: false };
+        const activity = activities.find(a => a.id === activityId);
+        const planBId = activity?.planBAlternativeId || null;
+        
+        newActivities[key] = { 
+          activityId, 
+          resting: false,
+          planBEnabled: currentSelection.planBEnabled || false,
+          planBActivityId: currentSelection.planBActivityId || planBId
+        };
       }
     }
     
     onSelect(newActivities);
   };
 
-  // Contar progreso
+  const togglePlanB = (day: number, time: string) => {
+    const key = `${day}-${time}`;
+    const currentSelection = getSelection(day, time);
+    
+    if (!currentSelection.activityId) return;
+    
+    const newActivities = { ...selectedActivities };
+    newActivities[key] = {
+      ...currentSelection,
+      planBEnabled: !currentSelection.planBEnabled
+    };
+    
+    onSelect(newActivities);
+  };
+
   const getProgress = () => {
     let total = 0;
     let completed = 0;
@@ -393,6 +469,28 @@ const ActivitiesStep = ({ onSelect, selectedActivities, config, onBack, onContin
 
   const progress = getProgress();
 
+  const isItineraryComplete = useMemo(() => {
+    if (days.length === 0) return false;
+    return days.every(day => {
+      return timeSlots.every(slot => {
+        const sel = getSelection(day, slot.id);
+        return sel.activityId || sel.resting;
+      });
+    });
+  }, [days, selectedActivities]);
+
+  const getIncompleteDays = () => {
+    return days.filter(day => {
+      const hasAnySelection = timeSlots.some(slot => {
+        const sel = getSelection(day, slot.id);
+        return sel.activityId || sel.resting;
+      });
+      return !hasAnySelection;
+    }).map(d => d);
+  };
+
+  const incompleteDays = getIncompleteDays();
+
   return (
     <div className="space-y-4">
       <div className="text-center">
@@ -402,14 +500,12 @@ const ActivitiesStep = ({ onSelect, selectedActivities, config, onBack, onContin
         </p>
       </div>
 
-      {/* Selector de Día */}
       <div className="flex gap-2 overflow-x-auto pb-2">
         {days.map((day, idx) => (
           <button
             key={day}
             onClick={() => {
               setCurrentDay(idx);
-              // Auto-seleccionar el primer time slot
               setCurrentTime('morning');
             }}
             className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
@@ -423,7 +519,6 @@ const ActivitiesStep = ({ onSelect, selectedActivities, config, onBack, onContin
         ))}
       </div>
 
-      {/* Selector de Momento del Día */}
       <div className="grid grid-cols-4 gap-2">
         {timeSlots.map((slot) => {
           const Icon = slot.icon;
@@ -453,7 +548,6 @@ const ActivitiesStep = ({ onSelect, selectedActivities, config, onBack, onContin
         })}
       </div>
 
-      {/* Opciones: Descansar o Elegir Actividad */}
       <div className="bg-gray-50 rounded-xl p-4">
         <p className="text-sm font-medium text-gray-600 mb-3">
           Para {timeSlots.find(t => t.id === currentTime)?.label.toLowerCase()} del Día {currentDay + 1}:
@@ -477,7 +571,6 @@ const ActivitiesStep = ({ onSelect, selectedActivities, config, onBack, onContin
           <motion.button
             whileTap={{ scale: 0.98 }}
             onClick={() => {
-              // Desactivar descansar si se selecciona actividad
               const current = getSelection(currentDay, currentTime);
               if (current.resting) {
                 toggleSelection(currentDay, currentTime, null, false);
@@ -497,7 +590,6 @@ const ActivitiesStep = ({ onSelect, selectedActivities, config, onBack, onContin
           </motion.button>
         </div>
 
-        {/* Lista de actividades (solo si no está descansando) */}
         <AnimatePresence>
           {!getSelection(currentDay, currentTime).resting && (
             <motion.div
@@ -506,7 +598,6 @@ const ActivitiesStep = ({ onSelect, selectedActivities, config, onBack, onContin
               exit={{ opacity: 0, height: 0 }}
               className="space-y-2 overflow-hidden"
             >
-              {/* Categorías */}
               <div className="flex gap-2 overflow-x-auto pb-2">
                 {categories.map((cat) => (
                   <button
@@ -523,7 +614,6 @@ const ActivitiesStep = ({ onSelect, selectedActivities, config, onBack, onContin
                 ))}
               </div>
 
-              {/* Lista */}
               <div className="max-h-48 overflow-y-auto space-y-2">
                 {filteredActivities.map((activity) => {
                   const isSelected = getSelection(currentDay, currentTime).activityId === activity.id;
@@ -557,27 +647,156 @@ const ActivitiesStep = ({ onSelect, selectedActivities, config, onBack, onContin
         </AnimatePresence>
       </div>
 
-      {/* Progreso */}
-      <div className="bg-gray-100 rounded-full h-2">
-        <div 
-          className="bg-gradient-to-r from-blue-500 to-indigo-500 h-2 rounded-full transition-all"
-          style={{ width: `${(progress.completed / progress.total) * 100}%` }}
-        />
-      </div>
-      <p className="text-center text-sm text-gray-500">
-        {progress.completed} de {progress.total} momentos completados
-      </p>
+      {(() => {
+        const selection = getSelection(currentDay, currentTime);
+        if (!selection.activityId || selection.resting) return null;
+        
+        const activity = activities.find(a => a.id === selection.activityId);
+        const planBActivity = selection.planBActivityId ? activities.find(a => a.id === selection.planBActivityId) : null;
+        
+        if (!activity || activity.type !== 'outdoor' || !planBActivity) return null;
+        
+        return (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-4 border-2 border-amber-200"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
+                  <span className="text-xl">🌧️</span>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-800">☔ Plan B</p>
+                  <p className="text-xs text-gray-500">
+                    {selection.planBEnabled 
+                      ? `Si llueve: ${planBActivity.name}`
+                      : 'Actividad al aire libre - sin alternativa'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => togglePlanB(currentDay, currentTime)}
+                className={`relative w-14 h-7 rounded-full transition-colors ${
+                  selection.planBEnabled ? 'bg-green-500' : 'bg-gray-300'
+                }`}
+              >
+                <span className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-transform ${
+                  selection.planBEnabled ? 'left-8' : 'left-1'
+                }`} />
+              </button>
+            </div>
+            {selection.planBEnabled && (
+              <div className="mt-2 pt-2 border-t border-amber-200 flex justify-between text-sm">
+                <span className="text-green-600">✓ Alternativa activada</span>
+                <span className="text-green-600 font-medium">
+                  {planBActivity.price === 0 ? 'GRATIS' : `$${planBActivity.price.toLocaleString()}`}
+                </span>
+              </div>
+            )}
+          </motion.div>
+        );
+      })()}
 
-      {/* Botones de navegación */}
+      <div className="space-y-2">
+        {days.map((day, idx) => {
+          const dayCompleted = timeSlots.every(slot => {
+            const sel = getSelection(day, slot.id);
+            return sel.activityId || sel.resting;
+          });
+          const dayProgress = timeSlots.filter(slot => {
+            const sel = getSelection(day, slot.id);
+            return sel.activityId || sel.resting;
+          }).length;
+          const progressPercent = (dayProgress / timeSlots.length) * 100;
+          
+          return (
+            <div 
+              key={day}
+              className={`p-3 rounded-lg border-2 transition-all cursor-pointer ${
+                currentDay === idx 
+                  ? 'border-blue-500 bg-blue-50' 
+                  : dayCompleted 
+                  ? 'border-green-200 bg-green-50'
+                  : 'border-gray-100 bg-gray-50 hover:border-gray-300'
+              }`}
+              onClick={() => {
+                setCurrentDay(idx);
+                setCurrentTime('morning');
+              }}
+            >
+              <div className="flex justify-between items-center mb-1">
+                <span className={`text-sm font-medium ${currentDay === idx ? 'text-blue-700' : dayCompleted ? 'text-green-700' : 'text-gray-600'}`}>
+                  Día {day} {dayCompleted && '✓'}
+                </span>
+                <span className="text-xs text-gray-400">
+                  {dayProgress}/{timeSlots.length} momentos
+                </span>
+              </div>
+              <div className="bg-gray-200 rounded-full h-1.5">
+                <div 
+                  className={`h-1.5 rounded-full transition-all ${
+                    dayCompleted ? 'bg-green-500' : 'bg-blue-500'
+                  }`}
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {showValidationError && incompleteDays.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-red-50 border border-red-200 rounded-xl p-4"
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+              <span className="text-red-600 font-bold">!</span>
+            </div>
+            <div>
+              <p className="font-medium text-red-800">Completa tu itinerario</p>
+              <p className="text-sm text-red-600">
+                Te faltan {incompleteDays.length} día{incompleteDays.length > 1 ? 's' : ''} por planificar
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setCurrentDay(incompleteDays[0] - 1);
+              setCurrentTime('morning');
+              setShowValidationError(false);
+            }}
+            className="w-full py-2 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors"
+          >
+            Ir a Día {incompleteDays[0]}
+          </button>
+        </motion.div>
+      )}
+
       <div className="flex gap-3 pt-2">
         <button onClick={onBack} className="flex-1 py-3 border-2 border-gray-200 rounded-xl font-medium text-gray-600 hover:bg-gray-50">
           Atrás
         </button>
         <button 
-          onClick={onContinue}
-          className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 text-white py-3 rounded-xl font-semibold hover:from-green-600 hover:to-emerald-700 shadow-lg"
+          onClick={() => {
+            if (isItineraryComplete) {
+              onContinue();
+            } else {
+              setShowValidationError(true);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+          }}
+          className={`flex-1 py-3 rounded-xl font-semibold shadow-lg transition-all ${
+            isItineraryComplete
+              ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700'
+              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          }`}
         >
-          Continuar →
+          {isItineraryComplete ? 'Continuar →' : `Completa tu viaje (${incompleteDays.length} día${incompleteDays.length !== 1 ? 's' : ''} sin asignar)`}
         </button>
       </div>
     </div>
@@ -594,6 +813,9 @@ interface SummaryStepProps {
 
 const SummaryStep = ({ config, onCheckout, onBack, isLoading }: SummaryStepProps) => {
   const [isForeigner, setIsForeigner] = useState(false);
+  const [showForeignerForm, setShowForeignerForm] = useState(false);
+  const [foreignerDoc, setForeignerDoc] = useState({ type: 'passport', number: '', name: '' });
+  const [foreignerVerified, setForeignerVerified] = useState(false);
 
   const startDate = config.dates.start ? new Date(config.dates.start) : null;
   const endDate = config.dates.end ? new Date(config.dates.end) : null;
@@ -604,10 +826,9 @@ const SummaryStep = ({ config, onCheckout, onBack, isLoading }: SummaryStepProps
   const children = config.travelType === 'familia' ? 1 : 0;
   const totalPeople = adults + children;
 
-  const hotelPerPerson = config.hotel ? config.hotel.pricePerNight : 0;
-  const hotelTotal = isValidDates ? hotelPerPerson * nights * totalPeople : 0;
+  const hotelPerRoom = config.hotel ? config.hotel.pricePerNight : 0;
+  const hotelTotal = isValidDates ? hotelPerRoom * nights : 0;
   
-  // Calcular actividades (solo las que NO son descanso)
   let activitiesTotal = 0;
   Object.values(config.activities).forEach((sel: any) => {
     if (sel.activityId && !sel.resting) {
@@ -639,7 +860,6 @@ const SummaryStep = ({ config, onCheckout, onBack, isLoading }: SummaryStepProps
     return date.toLocaleDateString('es', { day: 'numeric', month: 'short' });
   };
 
-  // Contar actividades y descansos
   let activityCount = 0;
   let restCount = 0;
   Object.values(config.activities).forEach((sel: any) => {
@@ -655,7 +875,6 @@ const SummaryStep = ({ config, onCheckout, onBack, isLoading }: SummaryStepProps
       </div>
 
       <div className="space-y-3">
-        {/* Grupo */}
         <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
@@ -670,7 +889,6 @@ const SummaryStep = ({ config, onCheckout, onBack, isLoading }: SummaryStepProps
           </div>
         </div>
 
-        {/* Fechas */}
         <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl p-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
@@ -685,7 +903,6 @@ const SummaryStep = ({ config, onCheckout, onBack, isLoading }: SummaryStepProps
           </div>
         </div>
 
-        {/* Hotel */}
         <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
@@ -701,7 +918,6 @@ const SummaryStep = ({ config, onCheckout, onBack, isLoading }: SummaryStepProps
           </div>
         </div>
 
-        {/* Actividades */}
         <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
@@ -718,7 +934,6 @@ const SummaryStep = ({ config, onCheckout, onBack, isLoading }: SummaryStepProps
         </div>
       </div>
 
-      {/* Toggle extranjero */}
       <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-4">
         <div className="flex items-center justify-between">
           <div>
@@ -726,21 +941,103 @@ const SummaryStep = ({ config, onCheckout, onBack, isLoading }: SummaryStepProps
             <p className="text-sm text-gray-500">IVA 0% + devolución 9pts</p>
           </div>
           <button
-            onClick={() => setIsForeigner(!isForeigner)}
+            onClick={() => {
+              if (!foreignerVerified) {
+                setShowForeignerForm(true);
+              } else {
+                setIsForeigner(!isForeigner);
+              }
+            }}
             className={`relative w-14 h-7 rounded-full transition-colors ${isForeigner ? 'bg-blue-500' : 'bg-gray-300'}`}
           >
             <span className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-transform ${isForeigner ? 'left-8' : 'left-1'}`} />
           </button>
         </div>
-        {isForeigner && (
+        {isForeigner && foreignerVerified && (
           <div className="mt-2 pt-2 border-t border-indigo-200 flex justify-between">
-            <span className="text-green-600">Ahorro IVA</span>
-            <span className="font-semibold text-green-600">-${taxBreakdown.totalDiscount.toLocaleString()}</span>
+            <span className="text-green-600">✓ Verificado: Turista Extranjero</span>
+            <span className="font-semibold text-green-600">Ahorro: -${taxBreakdown.totalDiscount.toLocaleString()}</span>
           </div>
         )}
       </div>
 
-      {/* Total */}
+      {showForeignerForm && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowForeignerForm(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.9 }}
+            animate={{ scale: 1 }}
+            className="bg-white rounded-2xl p-6 max-w-md w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-xl font-bold text-gray-800 mb-2">Verificación de Turista Extranjero</h3>
+            <p className="text-sm text-gray-500 mb-4">Para aplicar los beneficios fiscales, necesitamos verificar tu status de turista extranjero.</p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de documento</label>
+                <select
+                  value={foreignerDoc.type}
+                  onChange={(e) => setForeignerDoc({ ...foreignerDoc, type: e.target.value })}
+                  className="w-full p-3 border-2 border-gray-200 rounded-xl"
+                >
+                  <option value="passport">Pasaporte</option>
+                  <option value="id">Cédula de Identidad Extranjera</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Número de documento</label>
+                <input
+                  type="text"
+                  value={foreignerDoc.number}
+                  onChange={(e) => setForeignerDoc({ ...foreignerDoc, number: e.target.value })}
+                  placeholder={foreignerDoc.type === 'passport' ? 'AB1234567' : '12345678'}
+                  className="w-full p-3 border-2 border-gray-200 rounded-xl"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nombre completo</label>
+                <input
+                  type="text"
+                  value={foreignerDoc.name}
+                  onChange={(e) => setForeignerDoc({ ...foreignerDoc, name: e.target.value })}
+                  placeholder="Como aparece en tu documento"
+                  className="w-full p-3 border-2 border-gray-200 rounded-xl"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowForeignerForm(false)}
+                className="flex-1 py-3 border-2 border-gray-200 rounded-xl font-medium text-gray-600"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  if (foreignerDoc.number && foreignerDoc.name) {
+                    setForeignerVerified(true);
+                    setIsForeigner(true);
+                    setShowForeignerForm(false);
+                  }
+                }}
+                disabled={!foreignerDoc.number || !foreignerDoc.name}
+                className="flex-1 bg-blue-500 text-white py-3 rounded-xl font-semibold disabled:opacity-50"
+              >
+                Verificar
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
       <div className="bg-gradient-to-r from-gray-800 to-gray-900 rounded-2xl p-5 text-white">
         <div className="flex justify-between items-center">
           <span className="text-lg">Total</span>
@@ -873,8 +1170,8 @@ export function AdnViajeroPage() {
     const children = config.travelType === 'familia' ? 1 : 0;
     const totalPeople = adults + children;
     
-    const hotelPerPerson = config.hotel ? config.hotel.pricePerNight : 0;
-    const hotelTotal = hotelPerPerson * nights * totalPeople;
+    const hotelPerRoom = config.hotel ? config.hotel.pricePerNight : 0;
+    const hotelTotal = hotelPerRoom * nights;
     
     let activitiesTotal = 0;
     Object.values(config.activities).forEach((sel: any) => {
@@ -943,7 +1240,7 @@ export function AdnViajeroPage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4">
       <div className="max-w-lg mx-auto">
         <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">🧳 Tu Escapada</h1>
+          <h1 className="text-2xl font-bold text-gray-800">🧳 Tu Escapada - VERSION 2024-01-28-3</h1>
           <p className="text-gray-500 text-sm">Colonia del Sacramento</p>
         </div>
 
@@ -953,21 +1250,35 @@ export function AdnViajeroPage() {
           <AnimatePresence mode="wait">
             {currentStep < 6 && CurrentStepComponent && (
               <motion.div key={currentStep} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
-                <CurrentStepComponent
-                  onSelect={(data) => { setConfig({ ...config, [steps[currentStep].key]: data }); setCurrentStep(currentStep < 5 ? currentStep + 1 : 6); }}
-                  selectedType={config.travelType}
-                  selectedDates={config.dates}
-                  scores={config.bigFive}
-                  selectedHotel={config.hotel}
-                  selectedActivities={config.activities}
-                  config={config}
-                  isLoading={isLoading}
-                  onCheckout={handleCheckoutStart}
-                  onBack={() => setCurrentStep(Math.max(0, currentStep - 1))}
-                  onContinue={() => setCurrentStep(5)}
-                  arrivalTime={arrivalTime}
-                  onArrivalTimeSelect={setArrivalTime}
-                />
+                {currentStep === 1 ? (
+                  <BigFiveStep
+                    onUpdateScore={(data) => setConfig({ ...config, [steps[currentStep].key]: data })}
+                    onComplete={(data) => { setConfig({ ...config, [steps[currentStep].key]: data }); setCurrentStep(currentStep < 5 ? currentStep + 1 : 6); }}
+                    scores={config.bigFive}
+                    onBack={() => setCurrentStep(Math.max(0, currentStep - 1))}
+                  />
+                ) : currentStep === 0 ? (
+                  <TravelTypeStep
+                    onSelect={(data) => { setConfig({ ...config, [steps[currentStep].key]: data }); setCurrentStep(currentStep + 1); }}
+                    selectedType={config.travelType}
+                    onBack={() => setCurrentStep(Math.max(0, currentStep - 1))}
+                  />
+                ) : (
+                  <CurrentStepComponent
+                    onSelect={(data) => { setConfig({ ...config, [steps[currentStep].key]: data }); setCurrentStep(currentStep < 5 ? currentStep + 1 : 6); }}
+                    selectedType={config.travelType}
+                    selectedDates={config.dates}
+                    selectedHotel={config.hotel}
+                    selectedActivities={config.activities}
+                    config={config}
+                    isLoading={isLoading}
+                    onCheckout={handleCheckoutStart}
+                    onBack={() => setCurrentStep(Math.max(0, currentStep - 1))}
+                    onContinue={() => setCurrentStep(5)}
+                    arrivalTime={arrivalTime}
+                    onArrivalTimeSelect={setArrivalTime}
+                  />
+                )}
               </motion.div>
             )}
             {currentStep === 6 && checkoutData.user === null && (
