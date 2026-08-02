@@ -1,19 +1,23 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { 
-  ArrowLeft, Clock, Users, MapPin, Sun, Umbrella, 
+import {
+  ArrowLeft, Clock, Users, MapPin, Sun, Umbrella,
   AlertCircle, Calendar, CreditCard, Shield, ArrowRight
 } from 'lucide-react';
 import { getActivityById, getPartnerById, activities } from '@/data/mockData';
 import { ActivityCard } from '@/components/ActivityCard';
 import { useApp } from '@/context/AppContext';
 import { cn } from '@/utils/cn';
+import { getTranslatedContent } from '@/utils/i18nHelpers';
+import { useTranslation } from 'react-i18next';
 
 export function ActivityDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { weather, isAuthenticated, setShowAuthModal } = useApp();
-  
+  const { t, i18n } = useTranslation();
+  const language = i18n.language;
+
   const activity = getActivityById(id || '');
   const partner = activity ? getPartnerById(activity.partnerId) : null;
   const planBActivity = activity?.planBAlternativeId ? getActivityById(activity.planBAlternativeId) : null;
@@ -22,14 +26,34 @@ export function ActivityDetailPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Actividad no encontrada</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">{t('notFound', 'Actividad no encontrada')}</h1>
           <Link to="/explore" className="text-ocean-600 hover:underline">
-            Volver al catálogo
+            {t('backToCatalog', 'Volver al catálogo')}
           </Link>
         </div>
       </div>
     );
   }
+
+  // Bilingual Content Logic (Object-Based)
+  const currentLang = (i18n.language?.split('-')[0] || 'es');
+
+  // Helper to safely extract string from LocalizedString or string
+  const getLocalized = (content: any): string => {
+    if (!content) return '';
+    if (typeof content === 'string') return content;
+    if (typeof content === 'object') {
+      return content[currentLang] || content['es'] || content['en'] || '';
+    }
+    return String(content);
+  };
+
+  const translatedTitle = getLocalized(activity.name);
+  const translatedDescription = getLocalized(activity.description);
+
+  const planBTitle = planBActivity
+    ? getLocalized(planBActivity.name)
+    : '';
 
   const occupancyPercent = (activity.currentOccupancy / activity.capacity) * 100;
   const showWeatherAlert = !activity.weatherResilient && weather.rainProbability >= 70;
@@ -52,7 +76,7 @@ export function ActivityDetailPage() {
             className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
-            <span className="font-medium">Volver</span>
+            <span className="font-medium">{t('back', 'Volver')}</span>
           </button>
         </div>
       </div>
@@ -69,7 +93,7 @@ export function ActivityDetailPage() {
             >
               <img
                 src={activity.images[0]}
-                alt={activity.name}
+                alt={translatedTitle}
                 className="w-full h-[400px] object-cover"
               />
             </motion.div>
@@ -81,11 +105,10 @@ export function ActivityDetailPage() {
                   <Umbrella className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="font-medium text-amber-800">
-                      ⚠️ Alerta Climática: Esta es una actividad outdoor
+                      ⚠️ {t('weatherAlert', 'Alerta Climática')}: {t('outdoorActivity', 'Esta es una actividad outdoor')}
                     </p>
                     <p className="text-sm text-amber-700 mt-1">
-                      Con {weather.rainProbability}% de probabilidad de lluvia, tu reserva incluye 
-                      automáticamente el Plan B como alternativa.
+                      {t('rainProbabilityMessage', `Con ${weather.rainProbability}% de probabilidad de lluvia, tu reserva incluye automáticamente el Plan B.`)}
                     </p>
                   </div>
                 </div>
@@ -101,8 +124,8 @@ export function ActivityDetailPage() {
               <div className="flex items-center gap-3 mb-4">
                 <span className={cn(
                   "px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5",
-                  activity.weatherResilient 
-                    ? "bg-ocean-100 text-ocean-700" 
+                  activity.weatherResilient
+                    ? "bg-ocean-100 text-ocean-700"
                     : "bg-amber-100 text-amber-700"
                 )}>
                   {activity.weatherResilient ? (
@@ -115,7 +138,7 @@ export function ActivityDetailPage() {
               </div>
 
               <h1 className="font-playfair text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-                {activity.name}
+                {translatedTitle}
               </h1>
 
               <div className="flex items-center gap-4 text-gray-600 mb-6">
@@ -129,22 +152,22 @@ export function ActivityDetailPage() {
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Users className="w-4 h-4" />
-                  Hasta {activity.capacity} personas
+                  {t('upTo', 'Hasta')} {activity.capacity} {t('people', 'personas')}
                 </span>
               </div>
 
               <p className="text-gray-600 text-lg leading-relaxed mb-8">
-                {activity.description}
+                {translatedDescription}
               </p>
 
               {/* Partner Legal Info */}
               {partner && (
                 <div className="p-4 bg-gray-100 rounded-xl mb-6">
-                  <h4 className="font-medium text-gray-900 mb-2">Información del Prestador</h4>
+                  <h4 className="font-medium text-gray-900 mb-2">{t('providerInfo', 'Información del Prestador')}</h4>
                   <div className="text-sm text-gray-600 space-y-1">
-                    <p><strong>Razón Social:</strong> {partner.razonSocial}</p>
+                    <p><strong>{t('businessName', 'Razón Social')}:</strong> {partner.razonSocial}</p>
                     <p><strong>RUT:</strong> {partner.rut}</p>
-                    <p><strong>Dirección:</strong> {partner.legalAddress}</p>
+                    <p><strong>{t('address', 'Dirección')}:</strong> {partner.legalAddress}</p>
                   </div>
                 </div>
               )}
@@ -153,8 +176,7 @@ export function ActivityDetailPage() {
               <div className="flex items-start gap-2 p-3 bg-gray-50 rounded-lg text-xs text-gray-500">
                 <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                 <p>
-                  Las imágenes son de carácter ilustrativo. Los servicios, instalaciones y 
-                  disponibilidad pueden variar. Consulte condiciones en el establecimiento.
+                  {t('imageDisclaimer', 'Las imágenes son de carácter ilustrativo. Los servicios, instalaciones y disponibilidad pueden variar. Consulte condiciones en el establecimiento.')}
                 </p>
               </div>
             </motion.div>
@@ -170,11 +192,11 @@ export function ActivityDetailPage() {
                 <div className="flex items-center gap-2 mb-4">
                   <Umbrella className="w-5 h-5 text-ocean-600" />
                   <h2 className="font-playfair text-xl font-bold text-gray-900">
-                    Tu Plan B incluido
+                    {t('planBIncluded', 'Tu Plan B incluido')}
                   </h2>
                 </div>
                 <p className="text-gray-600 mb-4">
-                  Si el clima no acompaña, automáticamente se activará esta alternativa bajo techo:
+                  {t('planBDescription', 'Si el clima no acompaña, automáticamente se activará esta alternativa bajo techo:')}
                 </p>
                 <ActivityCard activity={planBActivity} isAlternative showPlanB={false} />
               </motion.div>
@@ -195,28 +217,28 @@ export function ActivityDetailPage() {
                   <span className="text-3xl font-bold text-gray-900">
                     ${activity.price.toLocaleString()}
                   </span>
-                  <span className="text-gray-500">UYU / persona</span>
+                  <span className="text-gray-500">UYU / {t('person', 'persona')}</span>
                 </div>
                 <p className="text-sm text-nature-600 mt-1 flex items-center gap-1">
                   <CreditCard className="w-4 h-4" />
-                  Tarjetas extranjeras: IVA incluido con beneficio
+                  {t('foreignCardsBenefit', 'Tarjetas extranjeras: IVA incluido con beneficio')}
                 </p>
               </div>
 
               {/* Availability */}
               <div className="mb-6">
                 <div className="flex items-center justify-between text-sm mb-2">
-                  <span className="text-gray-600">Disponibilidad</span>
+                  <span className="text-gray-600">{t('availability', 'Disponibilidad')}</span>
                   <span className="font-medium">
-                    {activity.capacity - activity.currentOccupancy} lugares
+                    {activity.capacity - activity.currentOccupancy} {t('spots', 'lugares')}
                   </span>
                 </div>
                 <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                  <div 
+                  <div
                     className={cn(
                       "h-full rounded-full transition-all",
-                      occupancyPercent > 80 ? "bg-red-500" : 
-                      occupancyPercent > 50 ? "bg-amber-500" : "bg-nature-500"
+                      occupancyPercent > 80 ? "bg-red-500" :
+                        occupancyPercent > 50 ? "bg-amber-500" : "bg-nature-500"
                     )}
                     style={{ width: `${occupancyPercent}%` }}
                   />
@@ -226,7 +248,7 @@ export function ActivityDetailPage() {
               {/* Date Picker Placeholder */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Fecha
+                  {t('date', 'Fecha')}
                 </label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -243,7 +265,7 @@ export function ActivityDetailPage() {
                 onClick={handleReserve}
                 className="w-full py-4 bg-ocean-600 text-white font-semibold rounded-xl hover:bg-ocean-700 transition-colors shadow-lg shadow-ocean-200 flex items-center justify-center gap-2"
               >
-                Reservar ahora
+                {t('reserveNow', 'Reservar ahora')}
                 <ArrowRight className="w-5 h-5" />
               </button>
 
@@ -251,15 +273,15 @@ export function ActivityDetailPage() {
               <div className="mt-6 pt-6 border-t border-gray-100 space-y-3">
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <Shield className="w-4 h-4 text-nature-500" />
-                  <span>Garantía de reembolso por clima</span>
+                  <span>{t('weatherGuarantee', 'Garantía de reembolso por clima')}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <Umbrella className="w-4 h-4 text-ocean-500" />
-                  <span>Plan B automático incluido</span>
+                  <span>{t('autoPlanB', 'Plan B automático incluido')}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <CreditCard className="w-4 h-4 text-gray-400" />
-                  <span>Pagos seguros (BCU regulado)</span>
+                  <span>{t('securePayments', 'Pagos seguros (BCU regulado)')}</span>
                 </div>
               </div>
             </motion.div>
@@ -269,7 +291,7 @@ export function ActivityDetailPage() {
         {/* Related Activities */}
         <section className="mt-16">
           <h2 className="font-playfair text-2xl font-bold text-gray-900 mb-6">
-            También te puede interesar
+            {t('youMayAlsoLike', 'También te puede interesar')}
           </h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {activities

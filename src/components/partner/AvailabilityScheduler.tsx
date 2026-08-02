@@ -7,16 +7,24 @@ import type { AvailabilitySettings, DayOfWeek, TimeSlot } from '@/utils/availabi
 import { createDefaultAvailability } from '@/utils/availabilityValidator';
 
 interface AvailabilitySchedulerProps {
-    partnerId: string;
+    partnerId?: string;
     initialSettings?: AvailabilitySettings;
     onSave?: (settings: AvailabilitySettings) => void;
+    onChange?: (settings: AvailabilitySettings) => void;
+    isEmbedded?: boolean;
 }
 
 /**
  * Selector Elegante de Disponibilidad para Partners
  * Permite configurar días de apertura y franjas horarias
  */
-export function AvailabilityScheduler({ partnerId, initialSettings, onSave }: AvailabilitySchedulerProps) {
+export function AvailabilityScheduler({
+    partnerId,
+    initialSettings,
+    onSave,
+    onChange,
+    isEmbedded = false
+}: AvailabilitySchedulerProps) {
     const [isSaving, setIsSaving] = useState(false);
 
     // 1. Robust Initial State - Use createDefaultAvailability as fallback
@@ -52,32 +60,36 @@ export function AvailabilityScheduler({ partnerId, initialSettings, onSave }: Av
     const allSlots: TimeSlot[] = ['morning', 'afternoon', 'evening'];
 
     const toggleDay = (day: DayOfWeek) => {
-        if (!settings?.days?.[day]) return;
+        // DEFENSIVE CODE: If day doesn't exist, create it from default instead of returning
+        const currentDayConfig = settings?.days?.[day] || createDefaultAvailability().days[day];
+
         setSettings(prev => ({
             ...prev,
             days: {
-                ...prev.days,
+                ...(prev?.days || createDefaultAvailability().days),
                 [day]: {
-                    ...prev.days[day],
-                    open: !prev.days[day]?.open,
-                    slots: !prev.days[day]?.open ? prev.days[day]?.slots : [],
+                    ...currentDayConfig,
+                    open: !currentDayConfig.open,
+                    // Auto-restore slots if opening, else keep them but hidden (or clear them)
+                    slots: !currentDayConfig.open
+                        ? (currentDayConfig.slots.length > 0 ? currentDayConfig.slots : ['morning', 'afternoon'])
+                        : [],
                 },
             },
         }));
     };
 
     const toggleSlot = (day: DayOfWeek, slot: TimeSlot) => {
-        const dayConfig = settings?.days?.[day];
-        if (!dayConfig) return;
+        const dayConfig = settings?.days?.[day] || createDefaultAvailability().days[day];
         const hasSlot = dayConfig?.slots?.includes(slot);
 
         setSettings(prev => ({
             ...prev,
             days: {
-                ...prev.days,
+                ...(prev?.days || createDefaultAvailability().days),
                 [day]: {
                     ...dayConfig,
-                    open: true, // Auto-abrir el día si se selecciona un slot
+                    open: true, // Force open if user toggles a slot
                     slots: hasSlot
                         ? dayConfig.slots.filter(s => s !== slot)
                         : [...(dayConfig.slots || []), slot],
@@ -218,35 +230,112 @@ export function AvailabilityScheduler({ partnerId, initialSettings, onSave }: Av
 
                                     {/* Franjas Horarias */}
                                     {dayConfig?.open && (
-                                        <div className="grid grid-cols-3 gap-2">
-                                            {allSlots.map((slot) => {
-                                                const isSelected = dayConfig?.slots?.includes(slot);
-                                                const slotInfo = slotNames?.[slot];
+                                        <div className="space-y-3">
+                                            <div className="grid grid-cols-3 gap-2">
+                                                {allSlots.map((slot) => {
+                                                    const isSelected = dayConfig?.slots?.includes(slot);
+                                                    const slotInfo = slotNames?.[slot];
 
-                                                return (
-                                                    <button
-                                                        key={slot}
-                                                        onClick={() => toggleSlot(day, slot)}
-                                                        className={cn(
-                                                            "p-3 rounded-lg border-2 transition-all text-left",
-                                                            isSelected
-                                                                ? "border-ocean-500 bg-ocean-100 shadow-sm"
-                                                                : "border-gray-200 hover:border-ocean-300 bg-white"
-                                                        )}
-                                                    >
-                                                        <div className="flex items-center gap-2 mb-1">
-                                                            <span className="text-lg">{slotInfo.icon}</span>
-                                                            <span className={cn(
-                                                                "text-sm font-medium",
-                                                                isSelected ? "text-ocean-700" : "text-gray-600"
-                                                            )}>
-                                                                {slotInfo.label}
-                                                            </span>
-                                                        </div>
-                                                        <p className="text-xs text-gray-500">{slotInfo.hours}</p>
-                                                    </button>
-                                                );
-                                            })}
+                                                    return (
+                                                        <button
+                                                            key={slot}
+                                                            onClick={() => toggleSlot(day, slot)}
+                                                            className={cn(
+                                                                "p-3 rounded-lg border-2 transition-all text-left relative overflow-hidden",
+                                                                isSelected
+                                                                    ? "border-ocean-500 bg-ocean-50 shadow-sm"
+                                                                    : "border-gray-200 hover:border-ocean-300 bg-white"
+                                                            )}
+                                                        >
+                                                            <div className="flex items-center gap-2 mb-1 relative z-10">
+                                                                <span className="text-lg">{slotInfo.icon}</span>
+                                                                <span className={cn(
+                                                                    "text-sm font-medium",
+                                                                    isSelected ? "text-ocean-700" : "text-gray-600"
+                                                                )}>
+                                                                    {slotInfo.label}
+                                                                </span>
+                                                            </div>
+                                                            {/* Default range hint */}
+                                                            <p className="text-[10px] text-gray-400 relative z-10">
+                                                                {dayConfig.hours?.[slot]?.start || slotInfo.hours.split('-')[0]} - {dayConfig.hours?.[slot]?.end || slotInfo.hours.split('-')[1]}
+                                                            </p>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            {/* Precise Time Editor for Selected Slots */}
+                                            {dayConfig.slots.length > 0 && (
+                                                <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 text-sm animate-in fade-in slide-in-from-top-2 duration-200">
+                                                    <p className="font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                                                        <Clock className="w-3 h-3" />
+                                                        Ajustar Horarios Exactos
+                                                    </p>
+                                                    <div className="space-y-2">
+                                                        {dayConfig.slots.map(slot => (
+                                                            <div key={slot} className="flex items-center justify-between bg-white p-2 rounded border border-gray-200 shadow-sm">
+                                                                <span className="text-gray-600 w-24 flex items-center gap-1">
+                                                                    {slotNames[slot].icon} <span className="capitalize">{slotNames[slot].label}</span>
+                                                                </span>
+                                                                <div className="flex items-center gap-2">
+                                                                    <input
+                                                                        type="time"
+                                                                        className="border border-gray-300 rounded px-2 py-1 text-center w-24 focus:ring-2 focus:ring-ocean-500 outline-none"
+                                                                        value={dayConfig.hours?.[slot]?.start || (slot === 'morning' ? '09:00' : slot === 'afternoon' ? '14:00' : '19:00')}
+                                                                        onChange={(e) => {
+                                                                            const newStart = e.target.value;
+                                                                            const currentEnd = dayConfig.hours?.[slot]?.end || (slot === 'morning' ? '12:00' : slot === 'afternoon' ? '18:00' : '23:00');
+
+                                                                            const newSettings = {
+                                                                                ...settings,
+                                                                                days: {
+                                                                                    ...settings.days,
+                                                                                    [day]: {
+                                                                                        ...dayConfig,
+                                                                                        hours: {
+                                                                                            ...dayConfig.hours,
+                                                                                            [slot]: { start: newStart, end: currentEnd }
+                                                                                        }
+                                                                                    }
+                                                                                }
+                                                                            };
+                                                                            setSettings(newSettings);
+                                                                            if (isEmbedded && onChange) onChange(newSettings);
+                                                                        }}
+                                                                    />
+                                                                    <span className="text-gray-400">a</span>
+                                                                    <input
+                                                                        type="time"
+                                                                        className="border border-gray-300 rounded px-2 py-1 text-center w-24 focus:ring-2 focus:ring-ocean-500 outline-none"
+                                                                        value={dayConfig.hours?.[slot]?.end || (slot === 'morning' ? '12:00' : slot === 'afternoon' ? '18:00' : '23:00')}
+                                                                        onChange={(e) => {
+                                                                            const newEnd = e.target.value;
+                                                                            const currentStart = dayConfig.hours?.[slot]?.start || (slot === 'morning' ? '09:00' : slot === 'afternoon' ? '14:00' : '19:00');
+
+                                                                            const newSettings = {
+                                                                                ...settings,
+                                                                                days: {
+                                                                                    ...settings.days,
+                                                                                    [day]: {
+                                                                                        ...dayConfig,
+                                                                                        hours: {
+                                                                                            ...dayConfig.hours,
+                                                                                            [slot]: { start: currentStart, end: newEnd }
+                                                                                        }
+                                                                                    }
+                                                                                }
+                                                                            };
+                                                                            setSettings(newSettings);
+                                                                            if (isEmbedded && onChange) onChange(newSettings);
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -307,34 +396,36 @@ export function AvailabilityScheduler({ partnerId, initialSettings, onSave }: Av
                     </p>
                 </div>
 
-                {/* Acciones */}
-                <div className="flex gap-3 mt-6 pt-6 border-t border-gray-200">
-                    <button
-                        onClick={handleReset}
-                        disabled={isSaving}
-                        className="flex items-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50"
-                    >
-                        <RotateCcw className="w-4 h-4" />
-                        Restablecer
-                    </button>
-                    <button
-                        onClick={handleSave}
-                        disabled={isSaving}
-                        className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-[#1A2B48] text-white font-medium rounded-xl hover:bg-[#142034] transition-colors disabled:opacity-50"
-                    >
-                        {isSaving ? (
-                            <>
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                Guardando...
-                            </>
-                        ) : (
-                            <>
-                                <Save className="w-4 h-4" />
-                                Guardar Disponibilidad
-                            </>
-                        )}
-                    </button>
-                </div>
+                {/* Acciones - Solo mostrar si NO es embedded */}
+                {!isEmbedded && (
+                    <div className="flex gap-3 mt-6 pt-6 border-t border-gray-200">
+                        <button
+                            onClick={handleReset}
+                            disabled={isSaving}
+                            className="flex items-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50"
+                        >
+                            <RotateCcw className="w-4 h-4" />
+                            Restablecer
+                        </button>
+                        <button
+                            onClick={handleSave}
+                            disabled={isSaving}
+                            className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-[#1A2B48] text-white font-medium rounded-xl hover:bg-[#142034] transition-colors disabled:opacity-50"
+                        >
+                            {isSaving ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Guardando...
+                                </>
+                            ) : (
+                                <>
+                                    <Save className="w-4 h-4" />
+                                    Guardar Disponibilidad
+                                </>
+                            )}
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );

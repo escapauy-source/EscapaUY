@@ -16,13 +16,14 @@ export function filterActivities(
   activities: Activity[],
   options: FilterOptions
 ): Activity[] {
-  if (!options.hotel) {
-    return [];
-  }
+  // if (!options.hotel) {
+  //   return [];
+  // }
 
   return activities.filter((activity) => {
     // 1. Filtro por ubicación: solo actividades en la misma ciudad que el hotel
-    if (activity.city !== options.hotel!.city) {
+    // 1. Filtro por ubicación: solo actividades en la misma ciudad que el hotel (si hay hotel seleccionado)
+    if (options.hotel && activity.city !== options.hotel.city) {
       return false;
     }
 
@@ -94,7 +95,11 @@ function calculateActivityPersonalityMatch(
     match += (scores.extraversion - 50) * 0.15;
   }
   // Actividades tranquilas: yoga, spa, parques naturales
-  else if (['experiencia', 'parque'].includes(category) && activity.name.toLowerCase().includes('yoga')) {
+  const nameStr = typeof activity.name === 'string'
+    ? activity.name.toLowerCase()
+    : (activity.name['es'] || activity.name['en'] || '').toLowerCase();
+
+  if (['experiencia', 'parque'].includes(category) && nameStr.includes('yoga')) {
     match += (50 - scores.extraversion) * 0.15;
   }
 
@@ -112,7 +117,8 @@ function calculateActivityPersonalityMatch(
 
   // NEUROTICISM (Neuroticismo - inverso)
   // Actividades relajantes vs. aventureras
-  if (activity.name.toLowerCase().includes('relax') || activity.name.toLowerCase().includes('yoga')) {
+
+  if (nameStr.includes('relax') || nameStr.includes('yoga')) {
     match += (100 - scores.neuroticism - 50) * 0.1; // Mayor neuroticism = preferir relax
   } else if (['experiencia', 'bodega'].includes(category)) {
     match += (scores.neuroticism - 50) * 0.05; // Mejor para menos neuroticism

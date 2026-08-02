@@ -10,7 +10,22 @@ interface HotelSelectorProps {
   onSelect: (hotel: Hotel) => void;
 }
 
+import { useTranslation } from 'react-i18next';
+
 export function HotelSelector({ hotels, selectedHotelId, onSelect }: HotelSelectorProps) {
+  const { i18n } = useTranslation();
+  const currentLang = (i18n.language?.split('-')[0] || 'es');
+
+  // Helper to safely extract string from LocalizedString or string
+  const getLocalized = (content: any): string => {
+    if (!content) return '';
+    if (typeof content === 'string') return content;
+    if (typeof content === 'object') {
+      return content[currentLang] || content['es'] || content['en'] || '';
+    }
+    return String(content);
+  };
+
   return (
     <div className="space-y-4">
       <div className="grid md:grid-cols-1 gap-4">
@@ -33,7 +48,7 @@ export function HotelSelector({ hotels, selectedHotelId, onSelect }: HotelSelect
               <div className="w-32 h-32 rounded-xl overflow-hidden flex-shrink-0">
                 <img
                   src={hotel.images[0]}
-                  alt={hotel.name}
+                  alt={getLocalized(hotel.name)}
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -43,7 +58,7 @@ export function HotelSelector({ hotels, selectedHotelId, onSelect }: HotelSelect
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div>
                     <h3 className="font-playfair text-lg font-bold text-gray-900">
-                      {hotel.name}
+                      {getLocalized(hotel.name)}
                     </h3>
                     <div className="flex items-center gap-1 text-sm text-gray-600 mt-1">
                       <MapPin className="w-4 h-4" />
@@ -57,7 +72,7 @@ export function HotelSelector({ hotels, selectedHotelId, onSelect }: HotelSelect
                 </div>
 
                 <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                  {hotel.description}
+                  {getLocalized(hotel.description)}
                 </p>
 
                 {/* Amenities */}

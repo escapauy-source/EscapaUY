@@ -9,15 +9,27 @@ interface PaymentFormProps {
   user: User;
   onSuccess: (transactionId: string) => void;
   onBack: () => void;
+  currency?: 'UYU' | 'USD';
 }
 
 export const PaymentForm: React.FC<PaymentFormProps> = ({
   paymentSummary,
   user,
   onSuccess,
-  onBack
+  onBack,
+  currency = 'UYU'
 }) => {
   const { t } = useTranslation();
+  const currencySymbol = currency === 'USD' ? 'U$S' : '$';
+
+  // Math rounding fixes for display consistency
+  const regularPrice = Math.round(paymentSummary.subtotal);
+  const ivaSavings = Math.round(paymentSummary.ivaSavings);
+  const hotelTaxSavings = Math.round(paymentSummary.hotelTaxSavings || 0);
+  const finalTotal = Math.max(0, regularPrice - ivaSavings - hotelTaxSavings);
+  const depositAmount = finalTotal > 0 ? Math.round(finalTotal * 0.15) : 0;
+  const remainingAmount = finalTotal - depositAmount;
+
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'paypal'>('card');
   const [installments, setInstallments] = useState(1);
   const [cardData, setCardData] = useState({
@@ -59,19 +71,19 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
 
   const validateCard = (): boolean => {
     if (!cardData.number || cardData.number.replace(/\s/g, '').length < 16) {
-      setError('Número de tarjeta inválido');
+      setError(t('payment.invalid_card', 'Número de tarjeta inválido'));
       return false;
     }
     if (!cardData.holder) {
-      setError('Ingresa el titular de la tarjeta');
+      setError(t('payment.invalid_holder', 'Ingresa el titular de la tarjeta'));
       return false;
     }
     if (!cardData.expiry || !/^\d{2}\/\d{2}$/.test(cardData.expiry)) {
-      setError('Vencimiento inválido (MM/YY)');
+      setError(t('payment.invalid_expiry', 'Vencimiento inválido (MM/YY)'));
       return false;
     }
     if (!cardData.cvv || cardData.cvv.length < 3) {
-      setError('CVV inválido');
+      setError(t('payment.invalid_cvv', 'CVV inválido'));
       return false;
     }
     return true;
@@ -79,9 +91,9 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!agreedTerms) {
-      setError('Debes aceptar los términos para continuar');
+      setError(t('payment.accept_terms_error', 'Debes aceptar los términos para continuar'));
       return;
     }
 
@@ -95,33 +107,35 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
     try {
       // Simulate payment processing
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
+
       // Mock successful transaction
       const transactionId = `TXN_${Date.now()}_${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-      
+
+      console.log('[PaymentForm] Transaction successful:', transactionId);
       onSuccess(transactionId);
     } catch (err) {
-      setError('Error al procesar el pago. Por favor intenta nuevamente.');
+      console.error('[PaymentForm] Error:', err);
+      setError(t('payment.processing_error', 'Error al procesar el pago. Por favor intenta nuevamente.'));
     } finally {
       setIsProcessing(false);
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="max-w-6xl mx-auto p-6">
       {/* Header */}
       <div className="text-center mb-8">
         <h2 className="text-3xl font-bold text-gray-800 mb-2">{t('payment.title')}</h2>
         <div className="flex justify-center gap-4 text-sm text-gray-600">
           <span className="flex items-center gap-1">
             <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd"/>
+              <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
             </svg>
             {t('payment.ssl_protected')}
           </span>
           <span className="flex items-center gap-1">
             <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             {t('payment.bcu_regulated')}
           </span>
@@ -135,9 +149,9 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
             {/* Amount Due */}
             <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl p-6 text-white mb-6">
               <p className="text-sm opacity-90">{t('payment.amount_due')}</p>
-              <p className="text-4xl font-bold">${paymentSummary.depositAmount.toFixed(2)}</p>
+              <p className="text-4xl font-bold">{currencySymbol} {depositAmount}</p>
               <p className="text-sm mt-2 opacity-80">
-                {t('payment.remaining')}: ${paymentSummary.remainingAmount.toFixed(2)}
+                {t('payment.remaining')}: {currencySymbol} {remainingAmount}
               </p>
             </div>
 
@@ -150,11 +164,10 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                 <button
                   type="button"
                   onClick={() => setPaymentMethod('card')}
-                  className={`flex-1 py-3 px-4 rounded-lg border-2 flex items-center justify-center gap-2 transition-all ${
-                    paymentMethod === 'card'
-                      ? 'border-blue-600 bg-blue-50 text-blue-600'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
+                  className={`flex-1 py-3 px-4 rounded-lg border-2 flex items-center justify-center gap-2 transition-all ${paymentMethod === 'card'
+                    ? 'border-blue-600 bg-blue-50 text-blue-600'
+                    : 'border-gray-200 hover:border-gray-300'
+                    }`}
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
@@ -164,14 +177,13 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                 <button
                   type="button"
                   onClick={() => setPaymentMethod('paypal')}
-                  className={`flex-1 py-3 px-4 rounded-lg border-2 flex items-center justify-center gap-2 transition-all ${
-                    paymentMethod === 'paypal'
-                      ? 'border-blue-600 bg-blue-50 text-blue-600'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
+                  className={`flex-1 py-3 px-4 rounded-lg border-2 flex items-center justify-center gap-2 transition-all ${paymentMethod === 'paypal'
+                    ? 'border-blue-600 bg-blue-50 text-blue-600'
+                    : 'border-gray-200 hover:border-gray-300'
+                    }`}
                 >
                   <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M7.076 21.337H2.47a.641.641 0 01-.633-.74L4.944 3.72a.64.64 0 01.632-.54h4.607c1.41 0 2.647.905 3.104 2.218l.594 1.705c.063.181.24.295.427.295h2.373c1.024 0 1.854.83 1.854 1.854v1.04c0 1.024-.83 1.854-1.854 1.854h-1.04c-1.024 0-1.854.83-1.854 1.854v1.04c0 1.024.83 1.854 1.854 1.854h1.04c1.024 0 1.854.83 1.854 1.854v.666c0 .398-.153.777-.424 1.05a1.458 1.458 0 01-1.05.424h-8.38a1.458 1.458 0 01-1.05-.424 1.458 1.458 0 01-.424-1.05v-.666c0-.398.153-.777.424-1.05a1.458 1.458 0 011.05-.424h.666c1.024 0 1.854-.83 1.854-1.854v-1.04c0-1.024-.83-1.854-1.854-1.854h-1.04c-1.024 0-1.854-.83-1.854-1.854V9.696c0-1.024.83-1.854 1.854-1.854h1.04c1.024 0 1.854.83 1.854 1.854v1.04c0 .398-.153.777-.424 1.05a1.458 1.458 0 01-1.05.424H8.44a.5.5 0 00-.5.5v2.628c0 .276.224.5.5.5h2.373c.398 0 .777.153 1.05.424.273.271.424.652.424 1.05v.666c0 .398-.153.777-.424 1.05a1.458 1.458 0 01-1.05.424H7.076z"/>
+                    <path d="M7.076 21.337H2.47a.641.641 0 01-.633-.74L4.944 3.72a.64.64 0 01.632-.54h4.607c1.41 0 2.647.905 3.104 2.218l.594 1.705c.063.181.24.295.427.295h2.373c1.024 0 1.854.83 1.854 1.854v1.04c0 1.024-.83 1.854-1.854 1.854h-1.04c-1.024 0-1.854.83-1.854 1.854v1.04c0 1.024.83 1.854 1.854 1.854h1.04c1.024 0 1.854.83 1.854 1.854v.666c0 .398-.153.777-.424 1.05a1.458 1.458 0 01-1.05.424h-8.38a1.458 1.458 0 01-1.05-.424 1.458 1.458 0 01-.424-1.05v-.666c0-.398.153-.777.424-1.05a1.458 1.458 0 011.05-.424h.666c1.024 0 1.854-.83 1.854-1.854v-1.04c0-1.024-.83-1.854-1.854-1.854h-1.04c-1.024 0-1.854-.83-1.854-1.854V9.696c0-1.024.83-1.854 1.854-1.854h1.04c1.024 0 1.854.83 1.854 1.854v1.04c0 .398-.153.777-.424 1.05a1.458 1.458 0 01-1.05.424H8.44a.5.5 0 00-.5.5v2.628c0 .276.224.5.5.5h2.373c.398 0 .777.153 1.05.424.273.271.424.652.424 1.05v.666c0 .398-.153.777-.424 1.05a1.458 1.458 0 01-1.05.424H7.076z" />
                   </svg>
                   PayPal
                 </button>
@@ -209,7 +221,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                     value={cardData.holder}
                     onChange={handleCardInputChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="NOMBRE APELLIDO"
+                    placeholder={t('payment.card_holder_placeholder', 'NOMBRE APELLIDO')}
                   />
                 </div>
 
@@ -252,10 +264,10 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="1">{t('checkout.one_payment')}</option>
-                    <option value="2">2 cuotas de ${(paymentSummary.depositAmount / 2).toFixed(2)}</option>
-                    <option value="3">3 cuotas de ${(paymentSummary.depositAmount / 3).toFixed(2)}</option>
-                    <option value="6">6 cuotas de ${(paymentSummary.depositAmount / 6).toFixed(2)}</option>
-                    <option value="12">12 cuotas de ${(paymentSummary.depositAmount / 12).toFixed(2)}</option>
+                    <option value="2">2 {t('payment.installments_of', 'cuotas de')} {currencySymbol} {Math.round(depositAmount / 2)}</option>
+                    <option value="3">3 {t('payment.installments_of', 'cuotas de')} {currencySymbol} {Math.round(depositAmount / 3)}</option>
+                    <option value="6">6 {t('payment.installments_of', 'cuotas de')} {currencySymbol} {Math.round(depositAmount / 6)}</option>
+                    <option value="12">12 {t('payment.installments_of', 'cuotas de')} {currencySymbol} {Math.round(depositAmount / 12)}</option>
                   </select>
                 </div>
               </motion.div>
@@ -263,12 +275,12 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
 
             {paymentMethod === 'paypal' && (
               <div className="bg-gray-50 rounded-xl p-6 text-center">
-                <p className="text-gray-600 mb-4">Serás redirigido a PayPal para completar el pago de forma segura.</p>
+                <p className="text-gray-600 mb-4">{t('payment.paypal_redirect_msg', 'Serás redirigido a PayPal para completar el pago de forma segura.')}</p>
                 <button
                   type="button"
                   className="w-full bg-[#0070ba] text-white py-3 rounded-lg font-semibold hover:bg-[#003087] transition-colors"
                 >
-                  Continuar con PayPal
+                  {t('payment.continue_with_paypal', 'Continuar con PayPal')}
                 </button>
               </div>
             )}
@@ -327,7 +339,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
                         onChange={(e) => setBillingAddress(prev => ({ ...prev, country: e.target.value }))}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
-                        <option value="">Seleccionar</option>
+                        <option value="">{t('common.select', 'Seleccionar')}</option>
                         <option value="UY">Uruguay</option>
                         <option value="AR">Argentina</option>
                         <option value="BR">Brasil</option>
@@ -351,9 +363,9 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
               />
               <label htmlFor="terms" className="text-sm text-gray-600">
                 {t('checkout.terms_agree')}{' '}
-                <a href="#" className="text-blue-600 hover:underline">Términos de Servicio</a>
-                {' '}y{' '}
-                <a href="#" className="text-blue-600 hover:underline">Política de Privacidad</a>
+                <a href="#" className="text-blue-600 hover:underline">{t('payment.terms_of_service', 'Términos de Servicio')}</a>
+                {' '}{t('common.and', 'y')}{' '}
+                <a href="#" className="text-blue-600 hover:underline">{t('payment.privacy_policy', 'Política de Privacidad')}</a>
               </label>
             </div>
 
@@ -374,19 +386,20 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
               </button>
               <button
                 type="submit"
+                key={isProcessing ? 'processing' : 'idle'}
                 disabled={isProcessing}
                 className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {isProcessing ? (
-                  <>
+                  <div className="flex items-center gap-2">
                     <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                     </svg>
-                    {t('payment.processing_your_payment')}
-                  </>
+                    <span>{t('payment.processing_your_payment')}</span>
+                  </div>
                 ) : (
-                  t('payment.confirm_payment')
+                  <span>{t('payment.confirm_payment')}</span>
                 )}
               </button>
             </div>
@@ -395,7 +408,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
 
         {/* Order Summary */}
         <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 h-fit">
-          <h3 className="text-xl font-semibold mb-6">Resumen del Pedido</h3>
+          <h3 className="text-xl font-semibold mb-6">{t('payment.order_summary', 'Resumen del Pedido')}</h3>
 
           {/* Traveler Info */}
           <div className="bg-white rounded-xl p-4 mb-4">
@@ -409,43 +422,47 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
           <div className="space-y-3 mb-6">
             <div className="flex justify-between text-gray-600">
               <span>{t('checkout.subtotal')}</span>
-              <span>${paymentSummary.subtotal.toFixed(2)}</span>
+              <span>{currencySymbol} {paymentSummary.subtotal.toFixed(0)}</span>
             </div>
-            <div className="flex justify-between text-green-600">
-              <span>{t('checkout.iva_benefit')}</span>
-              <span>-${paymentSummary.ivaSavings.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-green-600">
-              <span>{t('voucher.iva_exempt')}</span>
-              <span>-${paymentSummary.hotelTaxSavings.toFixed(2)}</span>
-            </div>
+            {paymentSummary.ivaSavings > 0 && (
+              <div className="flex justify-between text-green-600">
+                <span>{t('checkout.iva_benefit')}</span>
+                <span>-{currencySymbol} {paymentSummary.ivaSavings.toFixed(0)}</span>
+              </div>
+            )}
+            {(paymentSummary.hotelTaxSavings || 0) > 0 && (
+              <div className="flex justify-between text-green-600">
+                <span>{t('voucher.iva_exempt')}</span>
+                <span>-{currencySymbol} {(paymentSummary.hotelTaxSavings || 0).toFixed(0)}</span>
+              </div>
+            )}
             <div className="border-t pt-3">
               <div className="flex justify-between text-lg font-bold">
                 <span>{t('voucher.total_paid')}</span>
-                <span>${paymentSummary.total.toFixed(2)}</span>
+                <span>{currencySymbol} {paymentSummary.total.toFixed(0)}</span>
               </div>
             </div>
           </div>
 
           {/* Payment Schedule */}
           <div className="bg-white rounded-xl p-4">
-            <p className="text-sm font-medium text-gray-800 mb-3">Calendario de Pagos</p>
+            <p className="text-sm font-medium text-gray-800 mb-3">{t('payment.payment_schedule', 'Calendario de Pagos')}</p>
             <div className="space-y-2">
               <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
                 <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
                 <div className="flex-1">
-                  <p className="text-sm font-medium">Pago Online (15%)</p>
-                  <p className="text-xs text-gray-500">Ahora con tarjeta</p>
+                  <p className="text-sm font-medium">{t('payment.online_payment', 'Pago Online')} (15%)</p>
+                  <p className="text-xs text-gray-500">{t('payment.now_with_card', 'Ahora con tarjeta')}</p>
                 </div>
-                <span className="font-bold text-blue-600">${paymentSummary.depositAmount.toFixed(2)}</span>
+                <span className="font-bold text-blue-600">{currencySymbol} {depositAmount}</span>
               </div>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
                 <div className="flex-1">
-                  <p className="text-sm font-medium">Pago en Destino (85%)</p>
-                  <p className="text-xs text-gray-500">Al llegar al hotel</p>
+                  <p className="text-sm font-medium">{t('payment.destination_payment', 'Pago en Destino')} (85%)</p>
+                  <p className="text-xs text-gray-500">{t('payment.at_location', 'En el lugar correspondiente')}</p>
                 </div>
-                <span className="font-bold text-gray-600">${paymentSummary.remainingAmount.toFixed(2)}</span>
+                <span className="font-bold text-gray-600">{currencySymbol} {remainingAmount}</span>
               </div>
             </div>
           </div>

@@ -83,7 +83,7 @@ export function generatePartnerVouchers(
                 services: [{
                     category: 'accommodation',
                     activityId: hotel.id,
-                    activityName: hotel.name,
+                    activityName: typeof hotel.name === 'string' ? hotel.name : (hotel.name['es'] || hotel.name['en'] || 'Hotel'),
                     date: startDate,
                     dayNumber: 1,
                     timeSlot: 'evening',
@@ -161,7 +161,7 @@ export function generatePartnerVouchers(
                 services: [{
                     category: activity.category,
                     activityId: activity.id,
-                    activityName: activity.name,
+                    activityName: typeof activity.name === 'string' ? activity.name : (activity.name['es'] || activity.name['en'] || 'Actividad'),
                     date: day.date,
                     dayNumber: day.dayNumber,
                     timeSlot: period.timeSlot,

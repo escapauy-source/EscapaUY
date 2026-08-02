@@ -3,6 +3,7 @@ import { Building2, Phone, Mail, MapPin, FileText, AlertCircle, CheckCircle2, Sa
 import { cn } from '@/utils/cn';
 import { usePartnerData, type Partner } from '@/hooks/usePartnerData';
 import { toast } from 'react-hot-toast';
+import { useApp } from '@/context/AppContext';
 
 interface PartnerLegalConfigProps {
     partnerId: string;
@@ -14,7 +15,8 @@ interface PartnerLegalConfigProps {
  * Cumplimiento Ley 17.250 (Defensa del Consumidor)
  */
 export function PartnerLegalConfig({ partnerId, initialData }: PartnerLegalConfigProps) {
-    const { updatePartner, loading: hookLoading } = usePartnerData(partnerId);
+    const { upsertPartner, loading: hookLoading } = usePartnerData(partnerId);
+    const { user } = useApp();
     const [config, setConfig] = useState<Partial<Partner>>(initialData || {});
     const [errors, setErrors] = useState<Partial<Record<keyof Partner, string>>>({});
     const [isSaving, setIsSaving] = useState(false);
@@ -84,7 +86,13 @@ export function PartnerLegalConfig({ partnerId, initialData }: PartnerLegalConfi
         if (validateForm()) {
             try {
                 setIsSaving(true);
-                const { error } = await updatePartner(config);
+                // Inject required fields for new partners
+                const finalConfig = {
+                    ...config,
+                    email: config.email || user?.email || `partner-${partnerId}@escapauy.com`,
+                    name: config.name || user?.user_metadata?.full_name || 'Nuevo Partner'
+                };
+                const { error } = await upsertPartner(finalConfig);
                 if (error) throw error;
                 toast.success('Configuración guardada correctamente');
             } catch (err) {
@@ -134,7 +142,7 @@ export function PartnerLegalConfig({ partnerId, initialData }: PartnerLegalConfi
                         type="text"
                         value={config?.business_name || ''}
                         onChange={(e) => handleChange('business_name', e.target.value)}
-                        placeholder="Ej: Bodega El Legado S.A."
+                        placeholder="Ej: Bodega Demo S.A."
                         className={cn(
                             "w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-ocean-500 focus:border-ocean-500 transition-colors",
                             errors.business_name ? "border-red-300" : "border-gray-300"
@@ -196,28 +204,70 @@ export function PartnerLegalConfig({ partnerId, initialData }: PartnerLegalConfi
                     )}
                 </div>
 
-                {/* Domicilio Real */}
-                <div>
-                    <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                        <MapPin className="w-4 h-4" />
-                        Domicilio Real *
-                    </label>
-                    <input
-                        type="text"
-                        value={config?.legal_address || ''}
-                        onChange={(e) => handleChange('legal_address', e.target.value)}
-                        placeholder="Calle, número, ciudad, departamento"
-                        className={cn(
-                            "w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-ocean-500 focus:border-ocean-500 transition-colors",
-                            errors.legal_address ? "border-red-300" : "border-gray-300"
+                {/* Domicilio Real Split: Address, City, Department */}
+                <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="sm:col-span-2">
+                        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                            <MapPin className="w-4 h-4" />
+                            Dirección (Calle y Número) *
+                        </label>
+                        <input
+                            type="text"
+                            value={config?.legal_address || ''}
+                            onChange={(e) => handleChange('legal_address', e.target.value)}
+                            placeholder="Calle Principal 1234"
+                            className={cn(
+                                "w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-ocean-500 focus:border-ocean-500 transition-colors",
+                                errors.legal_address ? "border-red-300" : "border-gray-300"
+                            )}
+                        />
+                        {errors.legal_address && (
+                            <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                                <AlertCircle className="w-3.5 h-3.5" />
+                                {errors.legal_address}
+                            </p>
                         )}
-                    />
-                    {errors.legal_address && (
-                        <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
-                            <AlertCircle className="w-3.5 h-3.5" />
-                            {errors.legal_address}
-                        </p>
-                    )}
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Localidad / Ciudad *
+                        </label>
+                        <input
+                            type="text"
+                            value={config?.location?.split(',')[0] || ''}
+                            onChange={(e) => {
+                                const dept = config?.location?.split(',')[1]?.trim() || '';
+                                handleChange('location', `${e.target.value}, ${dept}`);
+                            }}
+                            placeholder="Ej: Carmelo"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-ocean-500"
+                        />
+                        <p className="text-[10px] text-gray-500 mt-1">Fundamental para la IA de sugerencias</p>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Departamento *
+                        </label>
+                        <select
+                            value={config?.location?.split(',')[1]?.trim() || ''}
+                            onChange={(e) => {
+                                const city = config?.location?.split(',')[0]?.trim() || '';
+                                handleChange('location', `${city}, ${e.target.value}`);
+                            }}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-ocean-500"
+                        >
+                            <option value="">Seleccionar...</option>
+                            <option value="Colonia">Colonia</option>
+                            <option value="Montevideo">Montevideo</option>
+                            <option value="Maldonado">Maldonado</option>
+                            <option value="Rocha">Rocha</option>
+                            <option value="Canelones">Canelones</option>
+                            <option value="San José">San José</option>
+                            <option value="Soriano">Soriano</option>
+                        </select>
+                    </div>
                 </div>
 
                 {/* Teléfono */}

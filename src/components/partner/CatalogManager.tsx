@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Plus, Save, Eye, Trash2, Loader2, Sparkles } from 'lucide-react';
 import { ImageGalleryManager } from './ImageGalleryManager';
 import { ServiceCard, type PartnerService } from './ServiceCard';
+import { AvailabilityScheduler } from './AvailabilityScheduler'; // New import
 import { usePartnerServices } from '@/hooks/usePartnerData';
 import { toast } from 'react-hot-toast';
 
@@ -23,7 +24,9 @@ export function CatalogManager({ partnerId }: CatalogManagerProps) {
     const handleCreateNew = () => {
         setEditingService({
             name: '',
+            name_en: '',
             description: '',
+            description_en: '',
             category: 'Gastronomía',
             capacity: 10,
             availableHours: ['10:00-12:00', '14:00-18:00'],
@@ -62,7 +65,9 @@ export function CatalogManager({ partnerId }: CatalogManagerProps) {
             const serviceData = {
                 id: editingService.id,
                 name: editingService.name,
+                name_en: editingService.name_en, // New Field
                 description: editingService.description,
+                description_en: editingService.description_en, // New Field
                 capacity: editingService.capacity,
                 price: editingService.price,
                 schedule: editingService.availableHours?.join(', '), // Map to schedule field
@@ -103,26 +108,64 @@ export function CatalogManager({ partnerId }: CatalogManagerProps) {
             return;
         }
 
+        const original = editingService.description;
+
         setIsOptimizing(true);
         toast.loading('Consultando a la IA de EscapaUY...', { id: 'ai-loading' });
 
-        // Simulación de IA con los parámetros solicitados
+        // Simulación de IA Avanzada (Context Aware Generation)
         setTimeout(() => {
-            const original = editingService.description;
-            const seed = original?.toLowerCase() || '';
+            const lowerDesc = original.toLowerCase();
 
-            let optimized = '';
+            // 1. Detect Intent and Tone
+            const isWine = lowerDesc.includes('vino') || lowerDesc.includes('bodega') || lowerDesc.includes('cata');
+            const isFamily = lowerDesc.includes('familia') || lowerDesc.includes('niños') || lowerDesc.includes('juegos');
+            const isRomantic = lowerDesc.includes('pareja') || lowerDesc.includes('cena') || lowerDesc.includes('noche');
+            const isOutdoor = lowerDesc.includes('aire libre') || lowerDesc.includes('naturaleza') || lowerDesc.includes('paseo');
 
-            // Lógica de transformación mock basada en keywords o longitud
-            if (seed.includes('vino') || seed.includes('bodega')) {
-                optimized = `Descubre la esencia del Uruguay profundo en esta exclusiva experiencia boutique. Te invitamos a sumergirte en los paisajes de Carmelo, donde la elegancia y la tradición se encuentran en cada rincón. ${original}. Una vivencia acogedora y profesional diseñada para los amantes del buen vivir. No pierdas la oportunidad de vivir Colonia de una forma única: reserva ahora tu lugar y déjate seducir por el encanto de nuestra tierra.`;
-            } else if (seed.includes('paseo') || seed.includes('tour')) {
-                optimized = `Vive una aventura inolvidable con nuestro Turismo Boutique en Colonia. Hemos diseñado este recorrido acogedor y profesional para que descubras los secretos mejor guardados de la región. ${original}. Es el momento ideal para reconectar con lo auténtico en un entorno de elegancia incomparable. Asegura tu experiencia hoy mismo reservando a través de EscapaUY.`;
+            // 2. Select Template based on context
+            let templates = [];
+
+            if (isWine) {
+                templates = [
+                    `Sumérgete en la tradición vitivinícola con esta experiencia exclusiva. ${original}. Un recorrido sensorial diseñado para los amantes del buen vivir, donde cada copa cuenta una historia de nuestra tierra.`,
+                    `Descubre el alma de nuestros viñedos en un entorno de elegancia rústica. Te invitamos a vivir ${original}, maridado con la excelencia de nuestra producción local. Una cita ineludible para el paladar exigente.`,
+                    `Déjate seducir por los aromas y sabores de nuestra bodega boutique. ${original}. Una propuesta enoturística que combina pasión, historia y la mejor compañía en el corazón de la región.`
+                ];
+            } else if (isFamily) {
+                templates = [
+                    `Crea recuerdos imborrables junto a tus seres queridos. ${original}. Un espacio pensado para la diversión y la desconexión, donde grandes y chicos encuentran su momento de felicidad.`,
+                    `La escapada perfecta para disfrutar en familia. ${original}. Conecta con la naturaleza y disfruta de actividades diseñadas para fortalecer vínculos en un entorno seguro y acogedor.`,
+                    `Diversión y tranquilidad en un solo lugar. Te proponemos ${original}, una experiencia donde la risa y el disfrute están garantizados para toda la familia.`
+                ];
+            } else if (isRomantic) {
+                templates = [
+                    `Enciende la magia con una velada inolvidable. ${original}. El escenario perfecto para celebrar el amor, rodeados de una atmósfera íntima y detalles que enamoran.`,
+                    `Escápate de la rutina y reconecta con tu pareja en un entorno soñado. ${original}. Elegancia, privacidad y un servicio que cuida cada detalle para hacer de su visita un momento eterno.`,
+                    `Una experiencia sensorial diseñada para dos. ${original}. Permítanse disfrutar del placer de la buena compañía en un ambiente exclusivo y sofisticado.`
+                ];
+            } else if (isOutdoor) {
+                templates = [
+                    `Respira aire puro y renueva tu energía. ${original}. Una invitación a explorar la belleza natural de nuestro entorno, combinando aventura y relax en perfecta armonía.`,
+                    `Siente la libertad de la naturaleza en su máxima expresión. ${original}. Descubre paisajes únicos y vive una aventura auténtica, ideal para desconectar del ritmo urbano.`,
+                    `Conecta con lo esencial a través de esta experiencia al aire libre. ${original}. Un recorrido que despierta los sentidos y te invita a descubrir los secretos mejor guardados de nuestra región.`
+                ];
             } else {
-                optimized = `Elevamos tu próxima visita a Colonia con esta propuesta de Turismo Boutique inigualable. Combinando una voz profesional y acogedora, te ofrecemos ${original} en un entorno de pura elegancia. Ya sea en Carmelo o en el corazón del departamento, esta experiencia está pensada para deleitar tus sentidos. Te invitamos cordialmente a reservar tu lugar ahora para garantizar una estadía excepcional.`;
+                // Generic Premium Templates
+                templates = [
+                    `Elevamos tu experiencia con una propuesta de Turismo Boutique inigualable. ${original}. Diseñado para quienes buscan calidad, calidez y un servicio excepcional en cada detalle.`,
+                    `Descubre un refugio de exclusividad y encanto. ${original}. Te invitamos a ser parte de una vivencia auténtica, donde la tradición y la modernidad se encuentran para deleitarte.`,
+                    `Una invitación a disfrutar de lo mejor de nuestra hospitalidad. ${original}. Permítenos sorprenderte con una atención personalizada y un ambiente que invita al disfrute pleno.`
+                ];
             }
 
-            setEditingService(prev => prev ? { ...prev, description: optimized } : null);
+            // 3. Randomize selection for variety
+            const selectedTemplate = templates[Math.floor(Math.random() * templates.length)];
+
+            // 4. Polish (Capitalization, formatting)
+            const polished = selectedTemplate.replace(/\.\./g, '.').trim();
+
+            setEditingService(prev => prev ? { ...prev, description: polished } : null);
             setIsOptimizing(false);
             toast.dismiss('ai-loading');
             toast.success('✨ ¡Descripción optimizada con éxito!');
@@ -191,6 +234,21 @@ export function CatalogManager({ partnerId }: CatalogManagerProps) {
                                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-ocean-500 focus:border-ocean-500"
                                 />
                             </div>
+
+                            {/* English Name - New Field */}
+                            <div>
+                                <label className="block text-sm font-medium text-blue-800 mb-2 flex items-center gap-2">
+                                    🇺🇸 Nombre en Inglés (Opcional)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={editingService.name_en || ''}
+                                    onChange={e => setEditingService({ ...editingService, name_en: e.target.value })}
+                                    className="w-full px-4 py-3 border border-blue-200 bg-blue-50/30 rounded-xl focus:ring-2 focus:ring-blue-500"
+                                    placeholder="Ex: Premium Vineyard Tour"
+                                />
+                            </div>
+
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Categoría
@@ -236,6 +294,21 @@ export function CatalogManager({ partnerId }: CatalogManagerProps) {
                                 placeholder="Describe la experiencia de forma atractiva para seducir al turista..."
                                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-ocean-500 focus:border-ocean-500"
                             />
+
+                            {/* English Description - New Field */}
+                            <div className="mt-4 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                                <label className="block text-sm font-medium text-blue-800 mb-2">
+                                    🇺🇸 Descripción en Inglés (Opcional)
+                                </label>
+                                <textarea
+                                    value={editingService.description_en || ''}
+                                    onChange={e => setEditingService({ ...editingService, description_en: e.target.value })}
+                                    rows={3}
+                                    className="w-full px-4 py-3 border border-blue-200 bg-white rounded-xl focus:ring-2 focus:ring-blue-500"
+                                    placeholder="Describe the experience in English..."
+                                />
+                            </div>
+
                             <p className="text-[10px] text-gray-400 mt-1 italic">
                                 La IA ajustará la voz a una elegante y profesional, inyectando SEO de Colonia y Carmelo.
                             </p>
@@ -314,6 +387,29 @@ export function CatalogManager({ partnerId }: CatalogManagerProps) {
                                         className="w-full px-4 py-3 border border-amber-300 rounded-xl focus:ring-2 focus:ring-amber-500"
                                     />
                                 </div>
+
+                                <div className="pt-6 border-t border-gray-200">
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                                        🗓️ Disponibilidad Específica
+                                    </h3>
+                                    <p className="text-sm text-gray-500 mb-4">
+                                        Define qué días y horarios está habilitado este servicio.
+                                    </p>
+                                    <AvailabilityScheduler
+                                        isEmbedded={true}
+                                        initialSettings={(editingService.contactInfo as any)?.availability}
+                                        onChange={(newSettings) => {
+                                            setEditingService({
+                                                ...editingService,
+                                                contactInfo: {
+                                                    ...editingService.contactInfo!,
+                                                    availability: newSettings
+                                                } as any
+                                            });
+                                        }}
+                                    />
+                                </div>
+
                                 <div>
                                     <label className="block text-sm font-medium text-amber-900 mb-2">
                                         Instrucciones de Llegada Personalizadas

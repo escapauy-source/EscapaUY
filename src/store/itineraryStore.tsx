@@ -52,6 +52,8 @@ interface ItineraryState {
   travelGroup: string | null; // 'solo' | 'pareja' | 'familia'
   arrivalTime: string | null;
   bigFiveScores: BigFiveScores | null;
+  budget: number | null; // v282
+  draftActivities: Record<string, any>; // v282: Persist wizard state
   isHydrated: boolean;
   addActivity: (dayIndex: number, activity: Activity, timeSlot: TimeSlot) => boolean;
   removeActivity: (dayIndex: number, activityId: string) => void;
@@ -62,6 +64,8 @@ interface ItineraryState {
   setTravelGroup: (group: string | null) => void;
   setArrivalTime: (time: string | null) => void;
   setBigFiveScores: (scores: BigFiveScores | null) => void;
+  setBudget: (budget: number | null) => void; // v282
+  setDraftActivities: (activities: Record<string, any>) => void; // v282
   setSelectedHotel: (hotel: Hotel | null) => void;
   setNumberOfNights: (nights: number) => void;
   setNumberOfAdults: (adults: number) => void;
@@ -98,21 +102,23 @@ const initialState = {
   arrivalTime: null,
   bigFiveScores: null,
   currency: 'UYU' as const,
-  exchangeRate: 40.0
+  exchangeRate: 40.0,
+  budget: null,
+  draftActivities: {}
 };
 
 export const useItineraryStore = create<ItineraryState>()(
   persist(
     (set, get) => ({
       ...initialState,
-      
+
       setCurrency: (currency) => set({ currency }),
       setExchangeRate: (rate) => set({ exchangeRate: rate }),
-      
+
       addActivity: (dayIndex, activity, timeSlot) => {
         const state = get();
         const targetDay = state.days[dayIndex];
-        
+
         if (!targetDay) {
           toast.error('Día no válido');
           return false;
@@ -124,17 +130,17 @@ export const useItineraryStore = create<ItineraryState>()(
             new Date(targetDay.date),
             timeSlot
           );
-          
+
           if (!isAvailable) {
             const reason = getUnavailabilityReason(
               activity.availabilitySettings,
               new Date(targetDay.date),
               timeSlot
             );
-            
+
             const dayOfWeek = getDayOfWeek(new Date(targetDay.date));
             const dayConfig = (activity.availabilitySettings.days as any)[dayOfWeek];
-            
+
             if (!dayConfig?.open) {
               showClosedDayToast({
                 partnerName: activity.partnerName,
@@ -158,7 +164,7 @@ export const useItineraryStore = create<ItineraryState>()(
                 }
               );
             }
-            
+
             return false;
           }
         }
@@ -167,42 +173,42 @@ export const useItineraryStore = create<ItineraryState>()(
           days: state.days.map((day, idx) =>
             idx === dayIndex
               ? {
-                  ...day,
-                  activities: [...day.activities, { ...activity, timeSlot }],
-                }
+                ...day,
+                activities: [...day.activities, { ...activity, timeSlot }],
+              }
               : day
           ),
         }));
-        
+
         toast.success(`${activity.name} agregado a tu itinerario`, {
           icon: '✅',
           duration: 3000,
         });
-        
+
         return true;
       },
-      
+
       removeActivity: (dayIndex, activityId) => {
         set((state) => ({
           days: state.days.map((day, idx) =>
             idx === dayIndex
               ? {
-                  ...day,
-                  activities: day.activities.filter((a) => a.id !== activityId),
-                }
+                ...day,
+                activities: day.activities.filter((a) => a.id !== activityId),
+              }
               : day
           ),
         }));
         toast.success('Actividad eliminada', { duration: 2000 });
       },
-      
+
       moveActivity: (fromDay, toDay, activityId, timeSlot) => {
         const state = get();
         const fromDayData = state.days[fromDay];
         const toDayData = state.days[toDay];
-        
+
         if (!fromDayData || !toDayData) return false;
-        
+
         const activity = fromDayData.activities.find((a) => a.id === activityId);
         if (!activity) return false;
 
@@ -212,17 +218,17 @@ export const useItineraryStore = create<ItineraryState>()(
             new Date(toDayData.date),
             timeSlot
           );
-          
+
           if (!isAvailable) {
             const reason = getUnavailabilityReason(
               activity.availabilitySettings,
               new Date(toDayData.date),
               timeSlot
             );
-            
+
             const dayOfWeek = getDayOfWeek(new Date(toDayData.date));
             const dayConfig = (activity.availabilitySettings.days as any)[dayOfWeek];
-            
+
             if (!dayConfig?.open) {
               showClosedDayToast({
                 partnerName: activity.partnerName,
@@ -246,7 +252,7 @@ export const useItineraryStore = create<ItineraryState>()(
                 }
               );
             }
-            
+
             return false;
           }
         }
@@ -268,41 +274,41 @@ export const useItineraryStore = create<ItineraryState>()(
             return day;
           }),
         }));
-        
+
         return true;
       },
-      
+
       clearItinerary: () => {
         set({ ...initialState });
         toast.success('Itinerario limpiado');
       },
-      
+
       // ✅ MOTOR FINANCIERO CORREGIDO v4.0 - IVA + BENEFICIOS FISCALES
       getTotalCost: () => {
         try {
           const state = get();
           const debugPrefix = '[Motor Financiero v4.0]';
-          
+
           // 📌 FASE 0: Validar estado
           if (!state.selectedHotel && (!state.days || state.days.length === 0)) {
             console.log(`${debugPrefix} Sin hotel ni actividades, retorna 0`);
             return 0;
           }
-          
+
           // 📌 FASE 1: Determinar PAX según tipo de viaje
           let adults = state.numberOfAdults || 1;
           let kids = state.numberOfChildren || 0;
-          
+
           // ✅ Si es PAREJA, forzar adults = 2 y kids = 0
           if (state.travelGroup === 'pareja') {
             adults = 2;
             kids = 0;
           }
-          
+
           // 📌 FASE 2: Determinar residencia y beneficios fiscales
           const isForeignTourist = state.residencyCountry && state.residencyCountry !== 'Uruguay';
           const currency = state.currency || 'UYU';
-          
+
           console.log(`${debugPrefix} Configuración:`, {
             travelGroup: state.travelGroup,
             adults: adults,
@@ -315,14 +321,14 @@ export const useItineraryStore = create<ItineraryState>()(
 
           // 📌 FASE 3: Calcular HOTEL (Precio × Noches)
           let hotelCostBase = 0;
-          
+
           if (state.selectedHotel) {
             const hotel = state.selectedHotel;
             const nights = state.numberOfNights || 1;
-            
+
             // ✅ CORRECCIÓN: pricePerNight es precio por HABITACIÓN, no por persona
             hotelCostBase = hotel.pricePerNight * nights;
-            
+
             console.log(`${debugPrefix} Hotel: ${hotel.name}`, {
               pricePerNight: hotel.pricePerNight,
               nights: nights,
@@ -332,18 +338,18 @@ export const useItineraryStore = create<ItineraryState>()(
 
           // 📌 FASE 4: Calcular ACTIVIDADES (Precio × PAX)
           let activitiesCostBase = 0;
-          
+
           if (state.days && state.days.length > 0) {
-            state.days.forEach((day, dayIndex) => {
+            state.days.forEach((day, _dayIndex) => {
               if (day.activities && day.activities.length > 0) {
                 day.activities.forEach((activity) => {
                   const priceAdult = activity.price_adult ?? activity.price ?? 0;
                   const priceChild = activity.price_child ?? 0;
-                  
+
                   // ✅ Fórmula: (Cant_Adultos × precio_adulto) + (Cant_Niños × precio_niño)
                   const activityCost = (adults * priceAdult) + (kids * priceChild);
                   activitiesCostBase += activityCost;
-                  
+
                   console.log(`${debugPrefix} Actividad: ${activity.name}`, {
                     priceAdult,
                     priceChild,
@@ -358,7 +364,7 @@ export const useItineraryStore = create<ItineraryState>()(
 
           // 📌 FASE 5: Aplicar beneficios fiscales
           let finalTotal = hotelCostBase + activitiesCostBase;
-          
+
           if (isForeignTourist) {
             // ✅ EXTRANJEROS: IVA 0 (Beneficio fiscal)
             console.log(`${debugPrefix} TURISTA EXTRANJERO: IVA 0% aplicado`);
@@ -375,18 +381,18 @@ export const useItineraryStore = create<ItineraryState>()(
 
           console.log(`${debugPrefix} TOTAL FINAL: ${currency} ${finalTotal.toFixed(2)}`);
           return finalTotal;
-          
+
         } catch (error) {
           console.error('[STORE_CRITICAL] Error:', error);
           return 0;
         }
       },
-      
+
       // ✅ FASE 1: Configurar tipo de viaje y PAX automático
       setTravelGroup: (group) => {
         let adults = get().numberOfAdults;
         let children = get().numberOfChildren;
-        
+
         // ✅ Si es PAREJA: Auto-asignar 2 adultos, 0 niños
         if (group === 'pareja') {
           adults = 2;
@@ -398,19 +404,21 @@ export const useItineraryStore = create<ItineraryState>()(
           children = 0;
         }
         // ✅ Si es FAMILIA: Dejar que el usuario lo configure manualmente
-        
+
         console.log('[STORE_DEBUG] setTravelGroup:', { group, adults, children });
         set({ travelGroup: group, numberOfAdults: adults, numberOfChildren: children });
       },
-      
+
       setArrivalTime: (time) => set({ arrivalTime: time }),
       setBigFiveScores: (scores) => set({ bigFiveScores: scores }),
+      setBudget: (budget) => set({ budget }), // v282
+      setDraftActivities: (draftActivities) => set({ draftActivities }), // v282
       setSelectedHotel: (hotel) => set({ selectedHotel: hotel, itinerary: null, vouchers: [] }),
       setNumberOfNights: (nights) => set({ numberOfNights: nights, itinerary: null, vouchers: [] }),
       setNumberOfAdults: (adults) => set({ numberOfAdults: adults, itinerary: null, vouchers: [] }),
       setNumberOfChildren: (children) => set({ numberOfChildren: children, itinerary: null, vouchers: [] }),
       setChildrenAges: (ages) => set({ childrenAges: ages, itinerary: null, vouchers: [] }),
-      
+
       setResidencyCountry: (country) => {
         const isForeigner = country !== 'Uruguay';
         set({
@@ -419,7 +427,7 @@ export const useItineraryStore = create<ItineraryState>()(
           currency: isForeigner ? 'USD' : 'UYU'
         });
       },
-      
+
       setBookingInfo: (info) => set({
         selectedHotel: info.hotel,
         numberOfNights: info.nights,
@@ -427,15 +435,15 @@ export const useItineraryStore = create<ItineraryState>()(
         numberOfChildren: info.kids,
         childrenAges: info.kidsAges
       }),
-      
+
       setItinerary: (itinerary) => set({ itinerary }),
-      
+
       setDates: (start, end) => {
         if (!start) {
           set({ startDate: null, endDate: null, days: [], numberOfNights: 1 });
           return;
         }
-        
+
         if (!end) {
           set({
             startDate: start.toISOString(),
@@ -448,7 +456,7 @@ export const useItineraryStore = create<ItineraryState>()(
         const nights = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
         const days: ItineraryDay[] = [];
         const current = new Date(start);
-        
+
         while (current <= end) {
           days.push({
             date: new Date(current).toISOString(),
@@ -464,11 +472,11 @@ export const useItineraryStore = create<ItineraryState>()(
           numberOfNights: nights
         });
       },
-      
+
       // ✅ GENERACIÓN DE VOUCHERS MEJORADA
       generateVouchers: (bookingId, fullName, nationality, stayDuration) => {
         const state = get();
-        
+
         console.log('[STORE_DEBUG] Generando Vouchers. Validación de Estado:', {
           hasDays: state.days && state.days.length > 0,
           daysCount: state.days?.length || 0,
@@ -487,7 +495,7 @@ export const useItineraryStore = create<ItineraryState>()(
           toast.error('Error: No hay días en tu itinerario. Por favor crea un itinerario primero.');
           return false;
         }
-        
+
         if (!state.selectedHotel) {
           console.error('[STORE_DEBUG] FALLO: No hay hotel seleccionado');
           toast.error('Error: No has seleccionado un hotel. Por favor selecciona alojamiento.');
@@ -543,10 +551,10 @@ export const useItineraryStore = create<ItineraryState>()(
           count: vouchers.length,
           bookingId: bookingId
         });
-        
+
         return true;
       },
-      
+
       initializeExchangeRate: async () => {
         const { rate } = await getExchangeRate();
         console.log('[Store] Initialized Exchange Rate:', rate);
@@ -554,19 +562,27 @@ export const useItineraryStore = create<ItineraryState>()(
       },
     }),
     {
-      name: 'escapauy_itinerary',
+      name: 'escapauy-storage', // v282: Fixed Persistence Key
       storage: createJSONStorage(() => localStorage),
-      onRehydrateStorage: () => (state) => {
+      onRehydrateStorage: () => (state, error) => {
         console.log('[STORE_HYDRATION] Starting hydration check...');
-        
-        if (!state || typeof state.numberOfNights !== 'number' || !Array.isArray(state.days)) {
-          console.warn('[STORE_HYDRATION_ERROR] State corrupt or invalid on load. Performing HARD RESET.');
-          useItineraryStore.setState(initialState);
-        } else {
-          console.log('[STORE_HYDRATION] State rehydrated successfully.');
-        }
-        
-        useItineraryStore.setState({ isHydrated: true });
+
+        setTimeout(() => {
+          if (error) {
+            console.error('[STORE_HYDRATION_ERROR] Error during hydration:', error);
+          } else if (state) {
+            if (typeof state.numberOfNights !== 'number' || !Array.isArray(state.days)) {
+              console.warn('[STORE_HYDRATION_ERROR] State corrupt or invalid on load. Performing HARD RESET.');
+              useItineraryStore.setState(initialState);
+            } else {
+              console.log('[STORE_HYDRATION] State rehydrated successfully.');
+            }
+          } else {
+            console.log('[STORE_HYDRATION] No existing state found, using initial state.');
+          }
+
+          useItineraryStore.setState({ isHydrated: true });
+        }, 0);
       },
     }
   )
@@ -577,7 +593,7 @@ export const useIsHydrated = () => useItineraryStore((state) => state.isHydrated
 export function useDatesAsObjects() {
   const startDate = useItineraryStore((state) => state.startDate);
   const endDate = useItineraryStore((state) => state.endDate);
-  
+
   return {
     startDate: startDate ? new Date(startDate) : null,
     endDate: endDate ? new Date(endDate) : null,

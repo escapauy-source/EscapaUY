@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Camera, CheckCircle2, XCircle, Scan, Loader2 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { supabase } from '@/lib/supabase';
@@ -24,8 +24,23 @@ export function VoucherQRScanner({ partnerId }: VoucherQRScannerProps) {
     const [scanHistory, setScanHistory] = useState<any[]>([]);
 
     const handleScan = async (qrDataString: string) => {
-        // En un QR real, el dato podría ser el voucher_code
-        const voucherCode = qrDataString.trim();
+        let voucherCode = qrDataString.trim();
+
+        // 🟢 SMART PARSING: Check if QR is a JSON payload (Enriched QR)
+        try {
+            if (voucherCode.startsWith('{') && voucherCode.endsWith('}')) {
+                const parsed = JSON.parse(voucherCode);
+                // Extract the actual ID from common fields used in our Vouchers
+                if (parsed.ref) voucherCode = parsed.ref;
+                else if (parsed.voucherId) voucherCode = parsed.voucherId;
+                else if (parsed.bookingId) voucherCode = parsed.bookingId;
+
+                console.log('[Scanner] Parsed JSON payload. Code extracted:', voucherCode);
+            }
+        } catch (e) {
+            // Not JSON, continue with raw string
+            console.log('[Scanner] QR is raw string:', voucherCode);
+        }
 
         try {
             console.log('[Scanner] Validating voucher:', voucherCode);
@@ -107,24 +122,39 @@ export function VoucherQRScanner({ partnerId }: VoucherQRScannerProps) {
         }
     };
 
-    // Simulación de escaneo para testing
+    // Simulación de escaneo para testing (Auto-Healing)
     const simulateScan = async () => {
         setIsScanning(true);
         setScanResult(null);
 
-        // Intentar buscar el primer booking disponible para el partner para simular éxito
-        const { data } = await supabase
-            .from('partner_bookings')
-            .select('voucher_code')
-            .eq('partner_id', partnerId)
-            .eq('status', 'confirmed')
-            .limit(1);
+        try {
+            // 1. Intentar buscar un booking existente
+            const { data } = await supabase
+                .from('partner_bookings')
+                .select('voucher_code')
+                .eq('partner_id', partnerId)
+                .eq('status', 'confirmed')
+                .limit(1);
 
-        const codeToUse = data?.[0]?.voucher_code || 'VOUCH-MOCK-123';
+            let codeToUse = data?.[0]?.voucher_code;
 
-        setTimeout(() => {
-            handleScan(codeToUse);
-        }, 1500);
+            // 2. Si no hay bookings, mostrar mensaje claro en lugar de error o auto-creación
+            if (!codeToUse) {
+                toast.error('No hay reservas pendientes para escanear');
+                setIsScanning(false);
+                return;
+            }
+
+            // 3. Proceder al escaneo
+            setTimeout(() => {
+                handleScan(codeToUse);
+            }, 1500);
+
+        } catch (err) {
+            console.error('[Scanner] Setup failed:', err);
+            toast.error('Error preparando la simulación');
+            setIsScanning(false);
+        }
     };
 
     const formatCurrency = (amount: number) => {
@@ -242,6 +272,9 @@ export function VoucherQRScanner({ partnerId }: VoucherQRScannerProps) {
                 )}
             </div>
 
+            {/* Live Helper for Demo/Debug: Show Real Pending Bookings */}
+            <LiveVoucherHints partnerId={partnerId} onSelectCode={(code) => handleScan(code)} />
+
             {scanHistory?.length > 0 ? (
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 font-sans">
                     <div className="p-6 border-b border-gray-100 flex justify-between items-center">
@@ -286,6 +319,62 @@ export function VoucherQRScanner({ partnerId }: VoucherQRScannerProps) {
                     <p className="text-gray-500 italic">No hay validaciones registradas en esta sesión.</p>
                 </div>
             )}
+        </div>
+    );
+}
+
+/**
+ * Helper Component to show "Real" bookings waiting to be scanned
+ * Makes user testing much easier by linking Tourist -> Partner
+ */
+function LiveVoucherHints({ partnerId, onSelectCode }: { partnerId: string, onSelectCode: (code: string) => void }) {
+    const [pendingVouchers, setPendingVouchers] = useState<any[]>([]);
+
+    useEffect(() => {
+        const fetchPending = async () => {
+            const { data } = await supabase
+                .from('partner_bookings')
+                .select('voucher_code, tourist_name, total_amount')
+                .eq('partner_id', partnerId)
+                .eq('status', 'confirmed') // Only confirmed, not yet completed
+                .order('created_at', { ascending: false })
+                .limit(5);
+
+            if (data) setPendingVouchers(data);
+        };
+        fetchPending();
+
+        // Refresh every 10s to catch new "Tourist" purchases
+        const interval = setInterval(fetchPending, 10000);
+        return () => clearInterval(interval);
+    }, [partnerId]);
+
+    if (pendingVouchers.length === 0) return null;
+
+    return (
+        <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 animate-in fade-in slide-in-from-top-4">
+            <div className="flex items-center gap-2 mb-3">
+                <span className="text-amber-600">🔔</span>
+                <p className="text-sm font-semibold text-amber-900">
+                    Solicitudes Reales Pendientes ({pendingVouchers.length})
+                </p>
+            </div>
+            <p className="text-xs text-amber-700 mb-3">
+                Estos son turistas reales que han comprado y están esperando validación. Click para "escanear" (demo).
+            </p>
+            <div className="flex flex-wrap gap-2">
+                {pendingVouchers.map((v) => (
+                    <button
+                        key={v.voucher_code}
+                        onClick={() => onSelectCode(v.voucher_code)}
+                        className="px-3 py-1.5 bg-white border border-amber-200 rounded-lg text-xs font-mono text-amber-800 hover:bg-amber-100 hover:border-amber-300 transition-colors shadow-sm"
+                        title={`Turista: ${v.tourist_name}`}
+                    >
+                        {v.voucher_code}
+                        <span className="opacity-50 ml-1">(${v.total_amount})</span>
+                    </button>
+                ))}
+            </div>
         </div>
     );
 }

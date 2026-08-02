@@ -6,7 +6,9 @@ export interface PartnerService {
     id: string;
     partnerId: string;
     name: string;
+    name_en?: string;
     description: string;
+    description_en?: string;
     category: string;
     capacity: number;
     availableHours: string[];
@@ -245,9 +247,21 @@ export function ServiceCard({ service, mode: initialMode, showModeToggle = false
                             {formatCurrency(service.price)}
                         </p>
                     </div>
-                    <button className="px-6 py-3 bg-ocean-600 text-white font-medium rounded-xl hover:bg-ocean-700 transition-colors">
-                        Reservar Ahora
-                    </button>
+
+                    {initialMode === 'preview' ? (
+                        <div className="flex flex-col items-end">
+                            <button disabled className="px-6 py-3 bg-gray-100 text-gray-400 font-medium rounded-xl cursor-not-allowed">
+                                Reservar Ahora
+                            </button>
+                            <span className="text-[10px] text-gray-400 mt-1 italic">
+                                (Botón visible para el turista)
+                            </span>
+                        </div>
+                    ) : (
+                        <button className="px-6 py-3 bg-ocean-600 text-white font-medium rounded-xl hover:bg-ocean-700 transition-colors">
+                            Reservar Ahora
+                        </button>
+                    )}
                 </div>
             </div>
         </div>

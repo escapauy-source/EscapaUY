@@ -12,11 +12,13 @@ interface PartnerVoucherCardProps {
 export function PartnerVoucherCard({ voucher, className }: PartnerVoucherCardProps) {
     const currencyCode = voucher.currency || 'UYU';
 
-    const getPeriodLabel = (timeSlot: 'morning' | 'afternoon' | 'evening') => {
+    const getPeriodLabel = (timeSlot: string) => {
         switch (timeSlot) {
             case 'morning': return '🌅 Mañana';
+            case 'midday': return '☀️ Mediodía';
             case 'afternoon': return '🌤️ Tarde';
             case 'evening': return '🌙 Noche';
+            default: return '🕒 Horario a coordinar';
         }
     };
 

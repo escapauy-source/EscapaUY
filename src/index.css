@@ -3,6 +3,17 @@
 @theme {
   --font-playfair: 'Playfair Display', serif;
   --font-inter: 'Inter', sans-serif;
+  --font-montserrat: 'Montserrat', sans-serif;
+
+  --color-night: #1A1F2C;
+  --color-night-800: #252b3b;
+  --color-night-700: #2e3650;
+  --color-gold: #C5A059;
+  --color-gold-light: #d4b474;
+  --color-gold-dark: #a8833f;
+  --color-cream: #F8F7F4;
+  --color-cream-dark: #ede9e0;
+
   --color-ocean-50: #eff6ff;
   --color-ocean-100: #dbeafe;
   --color-ocean-200: #bfdbfe;
@@ -23,16 +34,27 @@
   --color-amber-600: #d97706;
 }
 
-/* Fade-in animation for step transitions */
+/* Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Montserrat:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* Glassmorphism */
+.glass {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(248, 247, 244, 0.08);
+  border: 1px solid rgba(197, 160, 89, 0.15);
+}
+
+.glass-dark {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(26, 31, 44, 0.75);
+  border: 1px solid rgba(197, 160, 89, 0.2);
+}
+
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateX(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0);    }
 }
 
 .animate-fade-in {

@@ -12,12 +12,12 @@ export interface TaxBreakdown {
   hotelSubtotal: number;
   activitiesSubtotal: number;
   subtotal: number; // Total BRUTO (con IVA incluido)
-  
+
   // Beneficios fiscales
   accommodationIVADiscount: number; // Descuento IVA hoteles (10%)
   gastronomyIVADiscount: number; // Descuento IVA gastronomía (18.03%)
   totalDiscount: number; // Suma de todos los descuentos
-  
+
   // Montos finales
   finalTotal: number; // Total NETO (después de descuentos)
   depositWeb: number; // 15% que se paga online
@@ -56,8 +56,8 @@ export function calculateTaxBenefits(params: TaxCalculationParams): TaxBreakdown
   let totalNetPrice = 0; // Total NETO (después de descuentos)
 
   // 📌 Constantes de IVA según normativa uruguaya
-  const GASTRONOMY_IVA_REDUCTION = 0.1803; // 18.03% de reducción (equivale a quitar 22% IVA)
-  const HOTEL_IVA_REDUCTION = 0.090909; // 9.09% de reducción (equivale a quitar 10% IVA)
+  const GASTRONOMY_IVA_REDUCTION = 0.18032786885; // ~18.03% (Exact: 1 - 1/1.22)
+  const HOTEL_IVA_REDUCTION = 0.18032786885; // ~18.03% (Exact: 1 - 1/1.22)
 
   console.log('[TAX_ENGINE_DEBUG] 💳 Iniciando Motor de Impuestos:', {
     isNonUruguayanResident: isNonUruguayanResident,
@@ -77,42 +77,51 @@ export function calculateTaxBenefits(params: TaxCalculationParams): TaxBreakdown
 
     // ✅ CASO 1: EXTRANJERO + PAGO ELECTRÓNICO = Aplica beneficios completos
     if (isNonUruguayanResident && paidElectronically) {
-      
+
       if (item.category === 'hotel') {
         hotelSubtotal += item.grossAmount;
-        
+
         // ✅ Hoteles: IVA 0 para extranjeros (Eliminar 10%)
         // Fórmula: Precio sin IVA = Precio con IVA / 1.10
         // Descuento = Precio con IVA - Precio sin IVA
-        discount = item.grossAmount * HOTEL_IVA_REDUCTION;
-        
+        // ✅ Hoteles: IVA 0 para extranjeros (Eliminar 10%) - User requested Zero VAT (22% removal logic)
+        // Fórmula: Precio sin IVA = Precio con IVA / 1.22
+        // Descuento = Precio con IVA - Precio sin IVA
+        discount = item.grossAmount - (item.grossAmount / 1.22);
+
         console.log(`[TAX_ENGINE_DEBUG] 🏨 Hotel (Extranjero):`, {
           grossAmount: item.grossAmount,
           ivaRate: '10%',
           calculation: `$${item.grossAmount} × ${HOTEL_IVA_REDUCTION} = $${discount}`,
           netAmount: item.grossAmount - discount
         });
-        
+
       } else if (item.category === 'restaurante') {
         activitiesSubtotal += item.grossAmount;
-        
+
         // ✅ Gastronomía: Reducción del 18.03% (equivale a quitar 22% IVA)
-        discount = item.grossAmount * GASTRONOMY_IVA_REDUCTION;
-        
+        // ✅ Gastronomía: Reducción del 18.03% (equivale a quitar 22% IVA)
+        // Formula Exacta: Precio - (Precio / 1.22)
+        discount = item.grossAmount - (item.grossAmount / 1.22);
+
         console.log(`[TAX_ENGINE_DEBUG] 🍽️ Restaurante (Extranjero):`, {
           grossAmount: item.grossAmount,
           ivaReduction: '18.03%',
           calculation: `$${item.grossAmount} × ${GASTRONOMY_IVA_REDUCTION} = $${discount}`,
           netAmount: item.grossAmount - discount
         });
-        
+
       } else {
         activitiesSubtotal += item.grossAmount;
-        
+
         // ✅ Actividades: Descuento según registro del Partner
         const benefitRate = item.vatBenefitOverride || 9; // 9% por defecto
-        discount = item.grossAmount * (benefitRate / 100);
-        
+
+        // Use exact formula for 9 points VAT reduction if applicable
+        // discount = item.grossAmount * (benefitRate / 100);
+        // For unified Zero VAT (18.03%) requested by user:
+        discount = item.grossAmount - (item.grossAmount / 1.22);
+
         console.log(`[TAX_ENGINE_DEBUG] 🎯 Actividad (Extranjero):`, {
           grossAmount: item.grossAmount,
           benefitRate: `${benefitRate}%`,
@@ -120,8 +129,8 @@ export function calculateTaxBenefits(params: TaxCalculationParams): TaxBreakdown
           netAmount: item.grossAmount - discount
         });
       }
-      
-    } 
+
+    }
     // ✅ CASO 2: URUGUAYO + PAGO ELECTRÓNICO = Beneficio básico solo en gastronomía (9 puntos)
     else {
       if (item.category === 'hotel') {
@@ -129,7 +138,7 @@ export function calculateTaxBenefits(params: TaxCalculationParams): TaxBreakdown
         // Uruguayos NO tienen descuento en hoteles
       } else {
         activitiesSubtotal += item.grossAmount;
-        
+
         // Beneficio de inclusión financiera (9 puntos) solo si paga electrónicamente
         if (paidElectronically) {
           discount = item.grossAmount * 0.09;
@@ -164,7 +173,7 @@ export function calculateTaxBenefits(params: TaxCalculationParams): TaxBreakdown
       finalTotal: finalTotal,
       message: 'Los descuentos se están SUMANDO en lugar de RESTAR'
     });
-    
+
     // Fallback seguro: devolver sin descuentos
     return {
       hotelSubtotal,

@@ -1,3 +1,9 @@
+// Basic Types
+export type LocalizedString = {
+  es: string;
+  en: string;
+};
+
 export interface User {
   id: string;
   email: string;
@@ -63,12 +69,13 @@ export interface Coordinates {
 export interface Hotel {
   id: string;
   partnerId: string;
-  name: string;
+  name: LocalizedString;
   address: string;
   city: string;
-  description: string;
+  description: LocalizedString;
   images: string[];
   rating: number;
+  stars: number;
   pricePerNight: number;
   price_adult?: number;
   price_child?: number;
@@ -86,28 +93,28 @@ export interface Activity {
   id: string;
   partnerId: string;
   partnerName: string;
-  name: string;
+  name: LocalizedString;
   city: string;
   type: 'indoor' | 'outdoor';
   weatherResilient: boolean;
   capacity: number;
   currentOccupancy: number;
   images: string[];
-  description: string;
+  description: LocalizedString;
   price: number;
   price_adult?: number;
   price_child?: number;
-  vat_benefit?: number; // % de descuento de IVA específico (ej: 9, 22)
-  isFree?: boolean;
+  vat_benefit?: number;
+  rating: number;
   duration: string;
-  planBAlternativeId?: string;
-  category: 'bodega' | 'museo' | 'restaurante' | 'paseo' | 'playa' | 'parque' | 'experiencia' | 'evento';
-  bestTime?: 'morning' | 'afternoon' | 'evening' | 'any';
+  bestTime?: string;
+  category: string;
   kidsFriendly?: boolean;
   minAge?: number;
   maxAge?: number;
-  coordinates?: Coordinates; // Temporary optional - add coordinates to all activities
-  rating: number;
+  planBAlternativeId?: string;
+  coordinates?: Coordinates;
+  isFree?: boolean;
   reviewsCount?: number;
 }
 
@@ -155,7 +162,7 @@ export interface WeatherForecast {
 }
 
 // Enhanced Itinerary Types for Plan A/B System
-export type TimeSlot = 'morning' | 'afternoon' | 'evening';
+export type TimeSlot = 'morning' | 'midday' | 'afternoon' | 'evening';
 
 export interface DayPeriod {
   timeSlot: TimeSlot;
@@ -234,14 +241,23 @@ export interface PartnerVoucher {
 // Legacy types (mantener para compatibilidad)
 export interface ItineraryActivity {
   activityId: string;
-  timeSlot: 'morning' | 'afternoon' | 'evening';
+  timeSlot: 'morning' | 'midday' | 'afternoon' | 'evening';
   planB?: string;
+  // Loose properties to support UI extensions without breaking legacy
+  name?: string;
+  price?: number;
+  duration?: string;
+  indoor?: boolean;
+  [key: string]: any;
 }
 
 export interface ItineraryDay {
   dayNumber: number;
+  date?: string; // Added to fix error in AdnViajeroPage
   activities: ItineraryActivity[];
   notes?: string;
+  freeTime?: boolean; // Added for UI logic
+  recommendations?: any[]; // Added for UI logic
 }
 
 // Blog System Types
@@ -269,4 +285,19 @@ export interface Review {
   date: string;
   placeId: string; // Hotel or Activity ID
   placeName?: string;
+}
+
+export interface PaymentSummary {
+  nights: number;
+  adults: number;
+  children: number;
+  subtotal: number;
+  ivaSavings: number;
+  total: number;
+  depositAmount: number;
+  remainingAmount: number;
+  hotelTaxSavings?: number;
+  restaurantSavings?: number;
+  checkInDate?: string;
+  checkOutDate?: string;
 }

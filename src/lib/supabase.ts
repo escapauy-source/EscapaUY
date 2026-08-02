@@ -4,8 +4,12 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.su
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-key';
 
 // En modo demo, no lanzamos error, solo avisamos en consola
-if (!import.meta.env.VITE_SUPABASE_URL ) {
+if (!import.meta.env.VITE_SUPABASE_URL) {
     console.warn('⚠️ Trabajando en MODO DEMO (Sin conexión a Supabase)');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = (globalThis as any).__supabaseClient || createClient(supabaseUrl, supabaseAnonKey);
+
+if (import.meta.env.DEV) {
+    (globalThis as any).__supabaseClient = supabase;
+}

@@ -9,9 +9,11 @@
 export function generateBookingReference(): string {
   const now = new Date();
   const datePart = now.toISOString().slice(0, 10).replace(/-/g, '');
-  const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase();
-  
-  return `ESC-${datePart}-${randomPart}`;
+  // Increase random part length to 6 chars and include milliseconds to ensure uniqueness in loops
+  const randomPart = Math.random().toString(36).substring(2, 8).toUpperCase();
+  const ms = now.getMilliseconds().toString().padStart(3, '0');
+
+  return `ESC-${datePart}-${randomPart}${ms}`;
 }
 
 /**
@@ -23,7 +25,7 @@ export function generateTransactionId(): string {
   const datePart = now.toISOString().slice(0, 10).replace(/-/g, '');
   const timePart = now.toTimeString().slice(0, 8).replace(/:/g, '');
   const randomPart = Math.random().toString(36).substring(2, 8).toUpperCase();
-  
+
   return `TXN-${datePart}-${timePart}-${randomPart}`;
 }
 
@@ -45,10 +47,10 @@ export function formatCurrency(amount: number, currency: string = 'USD'): string
 export function calculateNights(checkIn: Date | string, checkOut: Date | string): number {
   const start = typeof checkIn === 'string' ? new Date(checkIn) : checkIn;
   const end = typeof checkOut === 'string' ? new Date(checkOut) : checkOut;
-  
+
   const diffTime = Math.abs(end.getTime() - start.getTime());
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
+
   return diffDays;
 }
 
@@ -114,14 +116,14 @@ export function formatDateForInput(date: Date | string): string {
 export function calculateAge(birthDate: Date | string): number {
   const birth = typeof birthDate === 'string' ? new Date(birthDate) : birthDate;
   const today = new Date();
-  
+
   let age = today.getFullYear() - birth.getFullYear();
   const monthDiff = today.getMonth() - birth.getMonth();
-  
+
   if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
     age--;
   }
-  
+
   return age;
 }
 

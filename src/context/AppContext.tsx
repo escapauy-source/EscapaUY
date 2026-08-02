@@ -10,9 +10,11 @@ const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabase
 
 interface User {
   id: string;
-  email: string;
+  email?: string;
+  role?: string;
   user_metadata?: {
     full_name?: string;
+    role?: string;
   };
 }
 
@@ -30,6 +32,8 @@ interface AppContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   showAuthModal: boolean;
+  authModalRole: 'tourist' | 'partner';
+  setAuthModalRole: (role: 'tourist' | 'partner') => void;
   weather: Weather;
   setShowAuthModal: (show: boolean) => void;
   login: (email: string) => Promise<void>;
@@ -41,9 +45,17 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const savedUser = localStorage.getItem('escapauy_user');
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch {
+      return null;
+    }
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalRole, setAuthModalRole] = useState<'tourist' | 'partner'>('tourist');
   const navigate = useNavigate();
 
   // DATOS DE CLIMA PARA LA DEMO (Puedes cambiar 'sunny' por 'rainy' para mostrar el Plan B)
@@ -98,6 +110,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     isAuthenticated: !!user,
     isLoading,
     showAuthModal,
+    authModalRole,
+    setAuthModalRole,
     weather,
     setShowAuthModal,
     login,

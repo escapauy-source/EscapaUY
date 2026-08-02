@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { AlertTriangle, ArrowRight, Check } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Check, Sparkles, Star } from 'lucide-react';
 import { useItineraryStore, useDatesAsObjects, useIsForeigner } from '@/store/itineraryStore';
 import { activities } from '@/data/mockData';
 import { filterActivities, sortActivitiesByRelevance } from '@/utils/filterActivities';
@@ -36,7 +36,18 @@ const mockWeather = {
 
 export function ItineraryBuilderPage() {
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const currentLang = (i18n.language?.split('-')[0] || 'es');
+
+  // Helper to safely extract string from LocalizedString or string
+  const getLocalized = (content: any): string => {
+    if (!content) return '';
+    if (typeof content === 'string') return content;
+    if (typeof content === 'object') {
+      return content[currentLang] || content['es'] || content['en'] || '';
+    }
+    return String(content);
+  };
 
   // ==================== ZUSTAND STORE ====================
   const selectedHotel = useItineraryStore((state) => state.selectedHotel);
@@ -96,6 +107,7 @@ export function ItineraryBuilderPage() {
 
   const [selectedPeriod, setSelectedPeriod] = useState<TimeSlot>(getInitialSelectedPeriod());
   const [showActivitySelector, setShowActivitySelector] = useState(false);
+  const [selectorTab, setSelectorTab] = useState<'ai' | 'all'>('ai');
 
   // Validation: Check if hotel is selected
   if (!selectedHotel) {
@@ -145,6 +157,16 @@ export function ItineraryBuilderPage() {
   // Filter by selected time slot
   const activitiesForPeriod = filterActivitiesByTimeSlot(sortedActivities, selectedPeriod);
 
+  // Sugerencias IA: top 3 actividades ya ordenadas por relevancia (Big Five) + sin precio excesivo
+  const aiSuggestions = useMemo(() => {
+    const alreadyUsedIds = new Set(
+      currentDayPeriods.map(p => p.activityId).filter(Boolean)
+    );
+    return activitiesForPeriod
+      .filter(a => !alreadyUsedIds.has(a.id))
+      .slice(0, 3);
+  }, [activitiesForPeriod, currentDayPeriods]);
+
   // Check if weather should trigger Plan B
   const shouldShowWeatherAlert = mockWeather.rainProbability >= 70;
 
@@ -171,7 +193,7 @@ export function ItineraryBuilderPage() {
     const activity = activities.find((a) => a.id === activityId);
     if (!activity) return;
 
-    console.log('[ZUSTAND_DEBUG] Activity selected:', activity.name, 'type:', activity.type);
+    console.log('[ZUSTAND_DEBUG] Activity selected:', getLocalized(activity.name), 'type:', activity.type);
 
     const updatedPeriods = currentDayPeriods.map((p) => {
       if (p.timeSlot === selectedPeriod) {
@@ -335,9 +357,17 @@ export function ItineraryBuilderPage() {
               <h1 className="font-playfair text-4xl font-bold mb-2" style={{ color: '#1a1a1a' }}>
                 Diseña tu Experiencia
               </h1>
-              <p className="text-gray-600">
-                Crea un itinerario personalizado para tu estadía en {selectedHotel.name}
-              </p>
+              <div className="flex items-center gap-3">
+                <p className="text-gray-600">
+                  Estadía en <span className="font-semibold text-gray-800">{getLocalized(selectedHotel.name)}</span>
+                </p>
+                <button
+                  onClick={() => navigate('/adn-viajero?step=hotel')}
+                  className="text-xs text-ocean-600 hover:text-ocean-800 underline underline-offset-2 transition-colors"
+                >
+                  Cambiar hotel
+                </button>
+              </div>
             </div>
 
             {/* Date Range Picker */}
@@ -520,38 +550,119 @@ export function ItineraryBuilderPage() {
                   onClick={(e) => e.stopPropagation()}
                   className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-y-auto p-6"
                 >
-                  <h3 className="text-2xl font-playfair font-bold mb-6">
-                    Actividades Disponibles
-                  </h3>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {activitiesForPeriod.map((activity) => (
-                      <button
-                        key={activity.id}
-                        onClick={() => handleSelectActivity(activity.id)}
-                        className="p-4 border-2 border-gray-200 rounded-xl hover:border-ocean-400 hover:bg-ocean-50/50 transition-all text-left"
-                      >
-                        <img
-                          src={activity.images[0]}
-                          alt={activity.name}
-                          className="w-full h-32 object-cover rounded-lg mb-3"
-                        />
-                        <p className="font-semibold text-gray-900">{activity.name}</p>
-                        <p className="text-sm text-gray-600">{activity.partnerName}</p>
-                        <div className="mt-2 flex items-center gap-2">
-                          <span className="text-lg font-bold" style={{ color: '#C5A059' }}>
-                            ${activity.price}
-                          </span>
-                          <span className={cn(
-                            "px-2 py-1 rounded-full text-xs",
-                            activity.type === 'outdoor' ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"
-                          )}>
-                            {activity.type === 'outdoor' ? 'Outdoor' : 'Indoor'}
-                          </span>
-                        </div>
-                      </button>
-                    ))}
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-2xl font-playfair font-bold">Elegí tu actividad</h3>
+                    <button onClick={() => setShowActivitySelector(false)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
                   </div>
+
+                  {/* Tabs */}
+                  <div className="flex gap-2 mb-5">
+                    <button
+                      onClick={() => setSelectorTab('ai')}
+                      className={cn(
+                        'flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all',
+                        selectorTab === 'ai'
+                          ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      )}
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      Sugerencias IA
+                    </button>
+                    <button
+                      onClick={() => setSelectorTab('all')}
+                      className={cn(
+                        'flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all',
+                        selectorTab === 'all'
+                          ? 'bg-gray-800 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      )}
+                    >
+                      Todas las actividades
+                    </button>
+                  </div>
+
+                  {/* IA Suggestions Tab */}
+                  {selectorTab === 'ai' && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-4 p-3 bg-purple-50 rounded-xl border border-purple-100">
+                        <Sparkles className="w-4 h-4 text-purple-600 flex-shrink-0" />
+                        <p className="text-sm text-purple-700">
+                          Seleccionadas por la IA según tu perfil de viaje. Elegí una para agregarla a tu itinerario y presupuesto.
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {aiSuggestions.length === 0 ? (
+                          <p className="text-gray-500 col-span-3 text-center py-8">No hay sugerencias disponibles para este período.</p>
+                        ) : aiSuggestions.map((activity, idx) => (
+                          <button
+                            key={activity.id}
+                            onClick={() => { handleSelectActivity(activity.id); setSelectorTab('ai'); }}
+                            className="p-4 border-2 border-purple-200 rounded-xl hover:border-purple-500 hover:bg-purple-50/50 transition-all text-left relative group"
+                          >
+                            {idx === 0 && (
+                              <div className="absolute -top-2 -right-2 bg-purple-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow">
+                                <Star className="w-3 h-3" /> Top IA
+                              </div>
+                            )}
+                            <img
+                              src={activity.images[0]}
+                              alt={getLocalized(activity.name)}
+                              className="w-full h-28 object-cover rounded-lg mb-3"
+                            />
+                            <p className="font-semibold text-gray-900">{getLocalized(activity.name)}</p>
+                            <p className="text-xs text-gray-500 mb-2">{activity.partnerName}</p>
+                            <div className="flex items-center justify-between">
+                              <span className="text-base font-bold" style={{ color: '#C5A059' }}>
+                                {activity.price > 0 ? `$${activity.price.toLocaleString()}` : 'Gratis'}
+                              </span>
+                              <span className={cn(
+                                "px-2 py-0.5 rounded-full text-xs",
+                                activity.type === 'outdoor' ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"
+                              )}>
+                                {activity.type === 'outdoor' ? 'Outdoor' : 'Indoor'}
+                              </span>
+                            </div>
+                            <div className="mt-3 pt-2 border-t border-purple-100 text-xs text-purple-600 font-semibold group-hover:text-purple-800">
+                              ✓ Agregar al itinerario y presupuesto →
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* All Activities Tab */}
+                  {selectorTab === 'all' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {activitiesForPeriod.map((activity) => (
+                        <button
+                          key={activity.id}
+                          onClick={() => handleSelectActivity(activity.id)}
+                          className="p-4 border-2 border-gray-200 rounded-xl hover:border-ocean-400 hover:bg-ocean-50/50 transition-all text-left"
+                        >
+                          <img
+                            src={activity.images[0]}
+                            alt={getLocalized(activity.name)}
+                            className="w-full h-32 object-cover rounded-lg mb-3"
+                          />
+                          <p className="font-semibold text-gray-900">{getLocalized(activity.name)}</p>
+                          <p className="text-sm text-gray-600">{activity.partnerName}</p>
+                          <div className="mt-2 flex items-center gap-2">
+                            <span className="text-lg font-bold" style={{ color: '#C5A059' }}>
+                              ${activity.price}
+                            </span>
+                            <span className={cn(
+                              "px-2 py-1 rounded-full text-xs",
+                              activity.type === 'outdoor' ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"
+                            )}>
+                              {activity.type === 'outdoor' ? 'Outdoor' : 'Indoor'}
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </motion.div>
               </motion.div>
             )}

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore, User } from '../../stores/authStore';
-import { calculateTaxBenefits } from '../../utils/taxUtils';
 import { PaymentSummary } from '../../types';
 
 // Nacionalidades comunes para Colonia (turistas)
@@ -50,7 +49,7 @@ export const AuthCheckout: React.FC<AuthCheckoutProps> = ({
 }) => {
   const { t } = useTranslation();
   const { user, isAuthenticated, login, register, updateProfile, setGuestData, isLoading, error, clearError } = useAuthStore();
-  
+
   const [mode, setMode] = useState<'login' | 'register' | 'guest' | 'data'>('login');
   const [formData, setFormData] = useState({
     email: user?.email || '',
@@ -65,8 +64,27 @@ export const AuthCheckout: React.FC<AuthCheckoutProps> = ({
     address: user?.address || '',
     city: user?.city || ''
   });
-  
+
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+
+  // Fix: Update formData when user changes (e.g. after login/register or store hydration)
+  React.useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        email: user.email || prev.email,
+        name: user.name || prev.name,
+        documentType: user.documentType || prev.documentType,
+        documentNumber: user.documentNumber || prev.documentNumber,
+        birthDate: user.birthDate || prev.birthDate,
+        nationality: user.nationality || prev.nationality,
+        country: user.country || prev.country,
+        phone: user.phone || prev.phone,
+        address: user.address || prev.address,
+        city: user.city || prev.city
+      }));
+    }
+  }, [user]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -79,33 +97,33 @@ export const AuthCheckout: React.FC<AuthCheckoutProps> = ({
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
-    
+
     if (!formData.email) {
       errors.email = t('auth.validation.email_required');
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       errors.email = t('auth.validation.email_invalid');
     }
-    
+
     if (mode !== 'guest' && !formData.password) {
       errors.password = 'La contraseña es obligatoria';
     }
-    
+
     if (mode === 'register' && !formData.name) {
       errors.name = 'El nombre es obligatorio';
     }
-    
+
     if (formData.documentType === 'dni' && formData.documentNumber && !/^\d{6,9}$/.test(formData.documentNumber)) {
       errors.documentNumber = 'DNI inválido (6-9 dígitos)';
     }
-    
+
     if (formData.birthDate && new Date(formData.birthDate) > new Date()) {
       errors.birthDate = 'La fecha no puede ser futura';
     }
-    
+
     if (formData.phone && !/^\+?[\d\s-]{8,}$/.test(formData.phone)) {
       errors.phone = t('auth.validation.phone_invalid');
     }
-    
+
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -113,7 +131,7 @@ export const AuthCheckout: React.FC<AuthCheckoutProps> = ({
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
-    
+
     try {
       await login(formData.email, formData.password);
       if (user) {
@@ -127,7 +145,7 @@ export const AuthCheckout: React.FC<AuthCheckoutProps> = ({
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
-    
+
     try {
       await register(formData.email, formData.password, formData.name);
       if (user) {
@@ -146,7 +164,7 @@ export const AuthCheckout: React.FC<AuthCheckoutProps> = ({
   const handleDataSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
-    
+
     const updatedUser: User = {
       ...user!,
       email: formData.email,
@@ -160,7 +178,7 @@ export const AuthCheckout: React.FC<AuthCheckoutProps> = ({
       address: formData.address,
       city: formData.city
     };
-    
+
     await updateProfile(updatedUser);
     onComplete(updatedUser);
   };
@@ -180,13 +198,12 @@ export const AuthCheckout: React.FC<AuthCheckoutProps> = ({
           <button
             key={m}
             onClick={() => setMode(m as 'login' | 'register' | 'guest')}
-            className={`px-6 py-2 rounded-full font-medium transition-all ${
-              mode === m
-                ? 'bg-blue-600 text-white shadow-lg'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
+            className={`px-6 py-2 rounded-full font-medium transition-all ${mode === m
+              ? 'bg-blue-600 text-white shadow-lg'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
           >
-            {m === 'login' ? 'Ingresar' : m === 'register' ? 'Registrarse' : 'Invitado'}
+            {m === 'login' ? t('auth.login_btn') : m === 'register' ? t('auth.register_btn') : t('auth.guest_btn')}
           </button>
         ))}
       </div>
@@ -194,7 +211,7 @@ export const AuthCheckout: React.FC<AuthCheckoutProps> = ({
       <div className="grid md:grid-cols-2 gap-8">
         {/* Form Section */}
         <div className="bg-white rounded-2xl shadow-xl p-6">
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="popLayout">
             {mode === 'login' && (
               <motion.form
                 key="login"
@@ -204,8 +221,8 @@ export const AuthCheckout: React.FC<AuthCheckoutProps> = ({
                 onSubmit={handleLogin}
                 className="space-y-4"
               >
-                <h3 className="text-xl font-semibold mb-4">Iniciar Sesión</h3>
-                
+                <h3 className="text-xl font-semibold mb-4">{t('auth.login_title')}</h3>
+
                 {error && (
                   <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
                     {error}
@@ -231,7 +248,7 @@ export const AuthCheckout: React.FC<AuthCheckoutProps> = ({
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Contraseña
+                    {t('auth.password_label')}
                   </label>
                   <input
                     type="password"
@@ -239,7 +256,7 @@ export const AuthCheckout: React.FC<AuthCheckoutProps> = ({
                     value={formData.password}
                     onChange={handleInputChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="••••••••"
+                    placeholder={t('auth.password_placeholder')}
                   />
                   {validationErrors.password && (
                     <p className="text-red-500 text-sm mt-1">{validationErrors.password}</p>
@@ -251,17 +268,17 @@ export const AuthCheckout: React.FC<AuthCheckoutProps> = ({
                   disabled={isLoading}
                   className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
                 >
-                  {isLoading ? 'Ingresando...' : t('header.login')}
+                  {isLoading ? t('auth.logging_in') : t('header.login')}
                 </button>
 
                 <p className="text-center text-sm text-gray-600">
-                  ¿No tienes cuenta?{' '}
+                  {t('auth.no_account')}{' '}
                   <button
                     type="button"
                     onClick={() => setMode('register')}
                     className="text-blue-600 hover:underline"
                   >
-                    Regístrate
+                    {t('auth.go_register')}
                   </button>
                 </p>
               </motion.form>
@@ -276,8 +293,8 @@ export const AuthCheckout: React.FC<AuthCheckoutProps> = ({
                 onSubmit={handleRegister}
                 className="space-y-4"
               >
-                <h3 className="text-xl font-semibold mb-4">Crear Cuenta</h3>
-                
+                <h3 className="text-xl font-semibold mb-4">{t('auth.register_title')}</h3>
+
                 {error && (
                   <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
                     {error}
@@ -303,7 +320,7 @@ export const AuthCheckout: React.FC<AuthCheckoutProps> = ({
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nombre completo
+                    {t('auth.name_label')}
                   </label>
                   <input
                     type="text"
@@ -311,7 +328,7 @@ export const AuthCheckout: React.FC<AuthCheckoutProps> = ({
                     value={formData.name}
                     onChange={handleInputChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Juan Pérez"
+                    placeholder={t('auth.name_placeholder')}
                   />
                   {validationErrors.name && (
                     <p className="text-red-500 text-sm mt-1">{validationErrors.name}</p>
@@ -320,7 +337,7 @@ export const AuthCheckout: React.FC<AuthCheckoutProps> = ({
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Contraseña
+                    {t('auth.password_label')}
                   </label>
                   <input
                     type="password"
@@ -328,7 +345,7 @@ export const AuthCheckout: React.FC<AuthCheckoutProps> = ({
                     value={formData.password}
                     onChange={handleInputChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Mínimo 6 caracteres"
+                    placeholder={t('auth.password_hint')}
                   />
                   {validationErrors.password && (
                     <p className="text-red-500 text-sm mt-1">{validationErrors.password}</p>
@@ -340,17 +357,17 @@ export const AuthCheckout: React.FC<AuthCheckoutProps> = ({
                   disabled={isLoading}
                   className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:opacity-50"
                 >
-                  {isLoading ? 'Registrando...' : 'Crear Cuenta'}
+                  {isLoading ? t('auth.register_submit_loading') : t('auth.register_submit')}
                 </button>
 
                 <p className="text-center text-sm text-gray-600">
-                  ¿Ya tienes cuenta?{' '}
+                  {t('auth.has_account')}{' '}
                   <button
                     type="button"
                     onClick={() => setMode('login')}
                     className="text-blue-600 hover:underline"
                   >
-                    Ingresa
+                    {t('auth.go_login')}
                   </button>
                 </p>
               </motion.form>
@@ -364,9 +381,9 @@ export const AuthCheckout: React.FC<AuthCheckoutProps> = ({
                 exit={{ opacity: 0, x: 20 }}
                 className="space-y-4"
               >
-                <h3 className="text-xl font-semibold mb-4">Continuar como Invitado</h3>
+                <h3 className="text-xl font-semibold mb-4">{t('auth.guest_title')}</h3>
                 <p className="text-gray-600 text-sm mb-4">
-                  Completasolo los datos necesarios para generar tu voucher.
+                  {t('auth.guest_subtitle')}
                 </p>
 
                 <div>
@@ -391,7 +408,7 @@ export const AuthCheckout: React.FC<AuthCheckoutProps> = ({
                   onClick={handleGuest}
                   className="w-full bg-gray-600 text-white py-3 rounded-lg font-semibold hover:bg-gray-700 transition-colors"
                 >
-                  Continuar sin registrarme
+                  {t('auth.guest_submit')}
                 </button>
               </motion.div>
             )}
@@ -548,7 +565,7 @@ export const AuthCheckout: React.FC<AuthCheckoutProps> = ({
                     disabled={isLoading}
                     className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
                   >
-                    {isLoading ? 'Guardando...' : 'Continuar al Pago'}
+                    {isLoading ? t('auth.saving') : t('auth.save_continue')}
                   </button>
                 </div>
               </motion.form>
@@ -559,16 +576,16 @@ export const AuthCheckout: React.FC<AuthCheckoutProps> = ({
         {/* Payment Summary */}
         <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 h-fit">
           <h3 className="text-xl font-semibold mb-6">{t('checkout.trip_details')}</h3>
-          
+
           <div className="space-y-4 mb-6">
             <div className="flex justify-between">
               <span className="text-gray-600">{t('checkout.dates')}</span>
-              <span className="font-medium">{paymentSummary.nights} noches</span>
+              <span className="font-medium">{t('checkout.nights', { count: paymentSummary.nights })}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">{t('checkout.travelers')}</span>
               <span className="font-medium">
-                {paymentSummary.adults} adultos{paymentSummary.children > 0 ? `, ${paymentSummary.children} niños` : ''}
+                {t('checkout.adults', { count: paymentSummary.adults })}{paymentSummary.children > 0 ? `, ${t('checkout.children', { count: paymentSummary.children })}` : ''}
               </span>
             </div>
             <div className="flex justify-between">

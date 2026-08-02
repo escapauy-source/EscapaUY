@@ -25,16 +25,8 @@ i18n
             order: ['localStorage', 'navigator'],
             caches: ['localStorage'],
         },
-    }, (_err, _t) => {
-        // Callback cuando i18n está listo
+    }, () => {
         console.log('[I18N] Internacionalización lista');
-        // Marcar como inicializado
-        if (typeof window !== 'undefined') {
-            (window as any).i18n = {
-                i18n: i18n,
-                isInitialized: true
-            };
-        }
     });
 
 export default i18n;

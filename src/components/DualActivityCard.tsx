@@ -43,6 +43,19 @@ export function DualActivityCard({
     const adults = useItineraryStore((state) => state.numberOfAdults);
     const kids = useItineraryStore((state) => state.numberOfChildren);
 
+    const { i18n } = useTranslation();
+    const currentLang = (i18n.language?.split('-')[0] || 'es');
+
+    // Helper to safely extract string from LocalizedString or string
+    const getLocalized = (content: any): string => {
+        if (!content) return '';
+        if (typeof content === 'string') return content;
+        if (typeof content === 'object') {
+            return content[currentLang] || content['es'] || content['en'] || '';
+        }
+        return String(content);
+    };
+
     const currentActivity = selectedPlan === 'A' ? planA : planB;
 
     // Calculate total price for group
@@ -163,7 +176,7 @@ export function DualActivityCard({
                 <div className="absolute inset-0">
                     <img
                         src={currentActivity.images[0]}
-                        alt={currentActivity.name}
+                        alt={getLocalized(currentActivity.name)}
                         className="w-full h-full object-cover"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20" />
@@ -260,7 +273,7 @@ export function DualActivityCard({
 
                                 {/* Activity Name */}
                                 <h3 className="text-2xl font-playfair font-bold text-white mb-2">
-                                    {currentActivity.name}
+                                    {getLocalized(currentActivity.name)}
                                 </h3>
 
                                 {/* Partner & Location */}
@@ -274,7 +287,7 @@ export function DualActivityCard({
 
                                 {/* Description */}
                                 <p className="text-white/90 text-sm mb-4 line-clamp-2">
-                                    {currentActivity.description}
+                                    {getLocalized(currentActivity.description)}
                                 </p>
 
                                 {/* Plan B Toggle - Only show if activity is outdoor */}
@@ -315,7 +328,7 @@ export function DualActivityCard({
                                         {planBEnabled && (
                                             <div className="mt-2 pt-2 border-t border-white/20">
                                                 <p className="text-xs text-white/80">
-                                                    <strong>{t('itinerary.card.plan_b_label')}</strong> {planB.name}
+                                                    <strong>{t('itinerary.card.plan_b_label')}</strong> {getLocalized(planB.name)}
                                                 </p>
                                             </div>
                                         )}

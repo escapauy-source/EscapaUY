@@ -1,22 +1,21 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Search, Filter, Sun, Umbrella, MapPin, Sparkles, CheckCircle } from 'lucide-react';
+import { Search, Umbrella, Sparkles, CheckCircle, Heart, Compass } from 'lucide-react';
 import { ActivityCard } from '@/components/ActivityCard';
 import { WeatherWidget } from '@/components/WeatherWidget';
 import { useTranslation } from 'react-i18next';
-import { activities } from '@/data/mockData';
+import { useActivities } from '@/hooks/useActivities';
+import { useCurrency } from '@/hooks/useCurrency';
 import { useItineraryStore } from '@/store/itineraryStore';
 import {
   filterActivities,
   sortActivitiesByRelevance,
   groupActivitiesByCategory,
-  filterActivitiesByTime
 } from '@/utils/filterActivities';
 import { cn } from '@/utils/cn';
 
-type FilterType = 'all' | 'indoor' | 'outdoor';
-type TimeFilter = 'all' | 'morning' | 'afternoon' | 'evening';
+
 
 // Mock weather data (in production, from API)
 const mockWeather = {
@@ -29,9 +28,9 @@ const mockWeather = {
 
 export function ExplorePage() {
   const navigate = useNavigate();
+  // ============ ZUSTAND STORE & HOOKS ====================
   const { t } = useTranslation();
-
-  // ==================== ZUSTAND STORE ====================
+  const { isNonResident, toggleNonResident } = useCurrency(); // Global hook
   const bigFiveScores = useItineraryStore((state) => state.bigFiveScores);
   const selectedHotel = useItineraryStore((state) => state.selectedHotel);
   const numberOfChildren = useItineraryStore((state) => state.numberOfChildren);
@@ -39,29 +38,18 @@ export function ExplorePage() {
   const numberOfAdults = useItineraryStore((state) => state.numberOfAdults);
   const arrivalTime = useItineraryStore((state) => state.arrivalTime);
 
-  // Guard: if no hotel selected, show message
-  if (!selectedHotel) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center p-8 bg-white rounded-lg shadow-lg border border-amber-200">
-          <MapPin className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('explore.no_hotel_title')}</h2>
-          <p className="text-gray-600 mb-4">{t('explore.no_hotel_desc')}</p>
-          <button onClick={() => navigate('/')} className="inline-block px-6 py-2 bg-ocean-600 text-white rounded-lg hover:bg-ocean-700">
-            {t('explore.back_home')}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  const [typeFilter, setTypeFilter] = useState<FilterType>('all');
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
+  // ==================== LOCAL STATE ====================
+  const { activities, loading, error } = useActivities();
+  const [tripContext, setTripContext] = useState<'all' | 'solo' | 'couple' | 'family' | 'friends'>('all');
+  const [pace, setPace] = useState<'all' | 'zen' | 'dynamic' | 'adventure'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Filtrar actividades según perfil del usuario
+  // Mock weather data (dynamic trigger)
+  const showRainWarning = mockWeather.rainProbability >= 70;
+
+  // Filtrar actividades base (Hotel + Kids + Personality)
   const personalizedActivities = filterActivities(activities, {
-    hotel: selectedHotel,
+    hotel: selectedHotel || null,
     numberOfChildren,
     childrenAges,
     numberOfAdults,
@@ -69,256 +57,274 @@ export function ExplorePage() {
     arrivalTime: (arrivalTime as 'morning' | 'afternoon' | 'evening') || 'afternoon',
   });
 
-  // Ordenar por relevancia (personalidad + disponibilidad)
-  const sortedActivities = sortActivitiesByRelevance(
+  // Ordenar por relevancia
+  let processedActivities = sortActivitiesByRelevance(
     personalizedActivities,
     bigFiveScores,
     numberOfChildren,
     numberOfAdults
   );
 
-  // Aplicar filtros adicionales (tipo, hora, búsqueda)
-  let filtered = sortedActivities.filter(activity => {
-    const matchesType = typeFilter === 'all' ||
-      (typeFilter === 'indoor' && activity.type === 'indoor') ||
-      (typeFilter === 'outdoor' && activity.type === 'outdoor');
+  // Climate Orchestration: Prioritize Indoor if Rain > 70%
+  if (showRainWarning) {
+    processedActivities = [...processedActivities].sort((a, b) => {
+      // Prioritize resilient/indoor activities
+      if (a.weatherResilient && !b.weatherResilient) return -1;
+      if (!a.weatherResilient && b.weatherResilient) return 1;
+      return 0;
+    });
+  }
 
-    const matchesTime = timeFilter === 'all' || activity.bestTime === 'any' || activity.bestTime === timeFilter;
-
+  // Aplicar Filtros Psicométricos y de Búsqueda
+  const filtered = processedActivities.filter(activity => {
+    // 1. Text Search
+    const searchLower = searchQuery.toLowerCase();
+    const nameEs = typeof activity.name === 'object' ? activity.name.es : activity.name;
+    const nameEn = typeof activity.name === 'object' ? activity.name.en : activity.name;
     const matchesSearch = searchQuery === '' ||
-      activity.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      activity.partnerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      activity.category.toLowerCase().includes(searchQuery.toLowerCase());
+      nameEs.toLowerCase().includes(searchLower) ||
+      nameEn.toLowerCase().includes(searchLower) ||
+      activity.partnerName.toLowerCase().includes(searchLower) ||
+      activity.category.toLowerCase().includes(searchLower);
 
-    return matchesType && matchesTime && matchesSearch;
+    // 2. Trip Context Filter
+    let matchesContext = true;
+    if (tripContext === 'family') matchesContext = activity.kidsFriendly || false;
+    if (tripContext === 'couple') matchesContext = activity.category === 'restaurante' || activity.category === 'experiencia' || activity.category === 'bodega';
+
+    // 3. Pace Filter (Ritmo) mapping to Activity Categories/Tags
+    let matchesPace = true;
+    if (pace === 'zen') matchesPace = ['spa', 'yoga', 'playa', 'parque', 'paseo'].some(tag => activity.category.includes(tag) || (typeof activity.name === 'object' ? activity.name.es : activity.name).toLowerCase().includes(tag));
+    if (pace === 'adventure') matchesPace = ['bodega', 'experiencia', 'evento'].includes(activity.category);
+    if (pace === 'dynamic') matchesPace = !['piscina', 'spa'].includes(activity.category); // Exclude very static things
+
+    return matchesSearch && matchesContext && matchesPace;
   });
 
-  // Agrupar por categoría para mejor presentación
+  // Agrupar por categoría
   const groupedActivities = groupActivitiesByCategory(filtered);
-
-  const showRainWarning = mockWeather.rainProbability >= 70;
   const totalActivities = filtered.length;
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Hero Section */}
-      <section className="bg-gradient-to-br from-ocean-600 to-ocean-800 text-white py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
-            <div>
-              <h1 className="font-playfair text-3xl sm:text-4xl font-bold mb-4">
-                {t('explore.title')}
-              </h1>
-              <p className="text-ocean-100 max-w-xl">
-                {t('explore.subtitle')}
-                {bigFiveScores && (
-                  <span className="inline-flex items-center gap-1 ml-2 px-2 py-0.5 bg-ocean-500/30 rounded-full text-sm">
-                    <Sparkles className="w-3 h-3" />
-                    {t('explore.personalized')}
-                  </span>
-                )}
-              </p>
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-ocean-600"></div>
+      </div>
+    );
+  }
 
-              {/* Hotel Selection Info */}
-              {selectedHotel && (
-                <div className="mt-4 p-3 bg-ocean-500/20 rounded-lg border border-ocean-300/30 flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-ocean-200" />
-                  <div>
-                    <p className="text-sm text-ocean-100">Ubicación del hotel:</p>
-                    <p className="font-semibold text-white">{selectedHotel.name} - {selectedHotel.city}</p>
-                  </div>
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 text-red-500">
+        Error cargando actividades: {error}
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 font-sans">
+      {/* Hero Section */}
+      <section className="bg-gradient-to-br from-[#0c4a6e] to-[#075985] text-white pt-8 pb-16 relative overflow-hidden">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          {/* Header Flex */}
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6 mb-8">
+            <div>
+              <h1 className="font-playfair text-4xl font-bold mb-2 tracking-tight">
+                Explorando Colonia
+              </h1>
+              <p className="text-[#e0f2fe] max-w-lg text-lg hidden sm:block">
+                Descubre actividades curadas para tu estilo de viaje.
+                La inteligencia artificial adapta las opciones al clima y a tu perfil.
+              </p>
+            </div>
+
+            {/* Weather Widget */}
+            <div className="glass-panel bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20 shadow-xl max-w-xs">
+              <WeatherWidget showDetails />
+              {showRainWarning && (
+                <div className="mt-3 text-xs bg-amber-500/20 text-amber-200 px-2 py-1 rounded border border-amber-500/30 flex items-center gap-1">
+                  <Umbrella className="w-3 h-3" />
+                  <span>Plan B activado por lluvia</span>
                 </div>
               )}
+            </div>
+          </div>
 
-              {/* Search */}
-              <div className="mt-6 relative max-w-md">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder={t('explore.search_placeholder')}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 rounded-xl bg-white text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-ocean-300"
-                />
+          {/* Search & Main Controls */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            {/* Search Input */}
+            <div className="relative flex-grow max-w-xl">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Buscar bodegas, paseos, experiencias..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-12 pr-4 py-4 rounded-xl bg-white text-gray-900 placeholder-gray-400 shadow-lg focus:ring-2 focus:ring-[#7dd3fc] border-none outline-none text-lg"
+              />
+            </div>
+
+            {/* Turista Extranjero Toggle */}
+            <button
+              onClick={toggleNonResident}
+              className={cn(
+                "flex items-center gap-3 px-6 py-3 rounded-xl transition-all duration-300 border shadow-lg group",
+                isNonResident
+                  ? "bg-emerald-600 border-emerald-500 text-white"
+                  : "bg-white/10 border-white/20 text-ocean-100 hover:bg-white/20"
+              )}
+            >
+              <div className={cn(
+                "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors",
+                isNonResident ? "border-white bg-white" : "border-ocean-200"
+              )}>
+                {isNonResident && <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />}
               </div>
-            </div>
-
-            <div className="lg:w-80">
-              <WeatherWidget showDetails />
-            </div>
+              <div className="text-left leading-tight">
+                <span className="block text-xs font-medium opacity-80">{t('explore.foreign_tourist', 'Soy Turista Extranjero')}</span>
+                <span className="block text-sm font-bold">{t('explore.min_iva', 'Ver Precios sin IVA')}</span>
+              </div>
+            </button>
           </div>
         </div>
       </section>
 
-      {/* Weather Alert */}
-      {showRainWarning && (
-        <div className="bg-amber-50 border-b border-amber-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-amber-100 rounded-lg">
-                <Umbrella className="w-5 h-5 text-amber-600" />
-              </div>
-              <div>
-                <p className="font-medium text-amber-800">
-                  {t('explore.weather_alert.title')}
-                </p>
-                <p className="text-sm text-amber-700">
-                  {t('explore.weather_alert.desc')}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Filters Section (Sticky) */}
+      <section className="sticky top-16 md:top-0 z-30 bg-white border-b border-gray-200 shadow-sm py-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
 
-      {/* Filters */}
-      <section className="sticky top-16 md:top-20 z-20 bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex flex-col gap-4">
-            {/* Type & Time Filters */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-              {/* Type Filter */}
+            {/* Psychometric Filters */}
+            <div className="flex items-center gap-4 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0 no-scrollbar">
+
+              {/* Context Selector (Viaje) */}
               <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-gray-400" />
-                <div className="flex rounded-lg bg-gray-100 p-1">
-                  <button
-                    onClick={() => setTypeFilter('all')}
-                    className={cn(
-                      "px-4 py-2 rounded-md text-sm font-medium transition-colors",
-                      typeFilter === 'all' ? "bg-white text-gray-900 shadow-sm" : "text-gray-600"
-                    )}
-                  >
-                    {t('explore.filters.all')}
-                  </button>
-                  <button
-                    onClick={() => setTypeFilter('outdoor')}
-                    className={cn(
-                      "px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5",
-                      typeFilter === 'outdoor' ? "bg-white text-gray-900 shadow-sm" : "text-gray-600"
-                    )}
-                  >
-                    <Sun className="w-4 h-4 text-amber-500" />
-                    {t('explore.filters.outdoor')}
-                  </button>
-                  <button
-                    onClick={() => setTypeFilter('indoor')}
-                    className={cn(
-                      "px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5",
-                      typeFilter === 'indoor' ? "bg-white text-gray-900 shadow-sm" : "text-gray-600"
-                    )}
-                  >
-                    <Umbrella className="w-4 h-4 text-ocean-500" />
-                    {t('explore.filters.indoor')}
-                  </button>
+                <Heart className="w-4 h-4 text-rose-400" />
+                <span className="text-sm font-medium text-gray-500 mr-1">{t('explore.travel_style', 'Estilo:')}</span>
+                <div className="flex gap-2">
+                  {['all', 'couple', 'family', 'friends'].map((ctx) => (
+                    <button
+                      key={ctx}
+                      onClick={() => setTripContext(ctx as any)}
+                      className={cn(
+                        "px-4 py-1.5 rounded-full text-sm font-medium transition-all border",
+                        tripContext === ctx
+                          ? "bg-rose-50 border-rose-200 text-rose-700 shadow-sm"
+                          : "bg-white border-gray-200 text-gray-500 hover:border-rose-100 hover:text-rose-600"
+                      )}
+                    >
+                      {t(`explore.context.${ctx}`, ctx === 'all' ? 'Todos' : ctx === 'couple' ? 'Pareja' : ctx === 'family' ? 'Familia' : 'Amigos')}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              {/* Time Filter */}
-              <div className="flex items-center gap-2 ml-auto">
-                <span className="text-sm text-gray-600">{t('explore.filters.time_label')}</span>
-                <div className="flex rounded-lg bg-gray-100 p-1">
-                  {['all', 'morning', 'afternoon', 'evening'].map((time) => (
+              <div className="h-8 w-px bg-gray-200 mx-2 hidden sm:block"></div>
+
+              {/* Pace Selector (Ritmo) */}
+              <div className="flex items-center gap-2">
+                <Compass className="w-4 h-4 text-amber-500" />
+                <span className="text-sm font-medium text-gray-500 mr-1">{t('explore.pace', 'Ritmo:')}</span>
+                <div className="flex gap-2">
+                  {['all', 'zen', 'dynamic', 'adventure'].map((p) => (
                     <button
-                      key={time}
-                      onClick={() => setTimeFilter(time as TimeFilter)}
+                      key={p}
+                      onClick={() => setPace(p as any)}
                       className={cn(
-                        "px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                        timeFilter === time ? "bg-white text-gray-900 shadow-sm" : "text-gray-600"
+                        "px-4 py-1.5 rounded-full text-sm font-medium transition-all border",
+                        pace === p
+                          ? "bg-amber-50 border-amber-200 text-amber-700 shadow-sm"
+                          : "bg-white border-gray-200 text-gray-500 hover:border-amber-100 hover:text-amber-600"
                       )}
                     >
-                      {time === 'all' ? t('explore.filters.all') : t(`explore.filters.${time}`)}
+                      {t(`explore.pace_label.${p}`, p === 'all' ? 'Cualquiera' : p)}
                     </button>
                   ))}
                 </div>
               </div>
             </div>
 
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder={t('explore.filters.search_alt')}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-ocean-300 focus:border-transparent"
-              />
+            <div className="text-sm text-gray-500 whitespace-nowrap hidden sm:block">
+              Mostrando <strong>{totalActivities}</strong> experiencias
             </div>
           </div>
         </div>
       </section>
 
-      {/* Activities Section */}
-      <section className="py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Info Bar */}
-          <div className="mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800">
-              📍 {t('explore.info_bar.showing')} <span className="font-semibold">{totalActivities}</span> {t('explore.info_bar.activities')}
-              {selectedHotel && <span> {t('explore.info_bar.for')} <strong>{selectedHotel.city}</strong></span>}
-              {numberOfChildren > 0 && <span> {t('explore.info_bar.children_filter')}</span>}
-              {bigFiveScores && <span> {t('explore.info_bar.profile_filter')}</span>}
+      {/* Activities Grid */}
+      <section className="py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto min-h-[50vh]">
+        {totalActivities > 0 ? (
+          <div className="space-y-16">
+            {Object.entries(groupedActivities).map(([category, categoryActivities]) => (
+              <motion.div
+                key={category}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                viewport={{ once: true }}
+              >
+                <div className="flex items-center gap-4 mb-6">
+                  <h2 className="font-playfair text-3xl font-bold text-gray-900 capitalize">
+                    {t(`explore.categories.${category}`)}
+                  </h2>
+                  <div className="h-px bg-gray-200 flex-grow"></div>
+                  <span className="text-sm font-medium text-gray-400 uppercase tracking-widest">{categoryActivities.length} opciones</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {categoryActivities.map((activity, idx) => (
+                    <motion.div
+                      key={activity.id}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      whileInView={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.3, delay: idx * 0.05 }}
+                      viewport={{ once: true }}
+                    >
+                      <ActivityCard
+                        activity={activity}
+                      // isForeignTourist prop removed; handled internally by card
+                      />
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-24">
+            <div className="inline-block p-6 rounded-full bg-gray-100 mb-6">
+              <Sparkles className="w-12 h-12 text-gray-400" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">
+              No encontramos experiencias exactas
+            </h3>
+            <p className="text-gray-500 max-w-md mx-auto">
+              Intenta ajustar los filtros de ritmo o contexto para ver más opciones en Colonia.
             </p>
+            <button
+              onClick={() => { setTripContext('all'); setPace('all'); setSearchQuery(''); }}
+              className="mt-6 text-ocean-600 font-medium hover:underline"
+            >
+              Limpiar todos los filtros
+            </button>
           </div>
-
-          {totalActivities > 0 ? (
-            <div className="space-y-12">
-              {Object.entries(groupedActivities).map(([category, categoryActivities]) => (
-                <motion.div
-                  key={category}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                  viewport={{ once: true }}
-                >
-                  {/* Category Header */}
-                  <div className="mb-6">
-                    <h2 className="font-playfair text-2xl font-bold text-gray-900 mb-2 capitalize">
-                      {t(`explore.categories.${category}`)}
-                    </h2>
-                    <p className="text-gray-600">{categoryActivities.length} {t('explore.categories.available')}</p>
-                  </div>
-
-                  {/* Activities Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {categoryActivities.map((activity, idx) => (
-                      <motion.div
-                        key={activity.id}
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        whileInView={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.2, delay: idx * 0.05 }}
-                        viewport={{ once: true }}
-                      >
-                        <ActivityCard activity={activity} />
-                      </motion.div>
-                    ))}
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-16">
-              <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                {t('explore.empty.title')}
-              </h3>
-              <p className="text-gray-500">
-                {t('explore.empty.desc')}
-              </p>
-            </div>
-          )}
-        </div>
+        )}
       </section>
 
-      {/* Floating Action Button */}
+      {/* Floating Action Button (Itinerary) */}
       <motion.button
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => navigate('/itinerary-builder')}
-        className="fixed bottom-8 right-8 bg-ocean-600 text-white rounded-full p-4 shadow-lg hover:bg-ocean-700 transition-colors flex items-center gap-2"
+        className="fixed bottom-8 right-8 bg-ocean-600 text-white rounded-full px-6 py-4 shadow-2xl hover:bg-ocean-700 transition-colors flex items-center gap-3 z-50 border-2 border-white/20"
       >
-        <CheckCircle className="w-6 h-6" />
-        <span className="hidden sm:inline font-semibold">{t('explore.cta_itinerary')}</span>
+        <span className="bg-white text-ocean-600 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">
+          {totalActivities > 0 ? '+' : '0'}
+        </span>
+        <span className="font-bold tracking-wide">Mi Maleta</span>
       </motion.button>
     </div>
   );

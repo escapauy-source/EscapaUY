@@ -17,7 +17,7 @@ export interface Partner {
     updated_at?: string;
 }
 
-export function usePartnerData(partnerId: string) {
+export function usePartnerData(partnerId: string | undefined) {
     const [partner, setPartner] = useState<Partner | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
@@ -29,13 +29,36 @@ export function usePartnerData(partnerId: string) {
             setLoading(true);
             console.log('[usePartnerData] Fetching partner:', partnerId);
 
+            // MODO DEMO / MOCK ID DETECTED
+            if (partnerId && (partnerId.startsWith('00000000') || !partnerId.includes('-'))) {
+                console.log('[usePartnerData] Mock ID detected, using dummy state');
+                setPartner({
+                    id: partnerId,
+                    email: 'demo@escapauy.com',
+                    name: 'Socio de Prueba',
+                    business_name: 'Establecimiento Demo',
+                });
+                setLoading(false);
+                return;
+            }
+
             const { data, error: fetchError } = await supabase
                 .from('partners')
                 .select('*')
                 .eq('id', partnerId)
-                .single();
+                .maybeSingle();
 
             if (fetchError) throw fetchError;
+
+            if (!data) {
+                console.log('[usePartnerData] Partner not found, using dummy state for UI to allow completion');
+                setPartner({
+                    id: partnerId,
+                    email: '',
+                    name: 'Nuevo Partner (Completar Perfil)',
+                });
+                return;
+            }
 
             console.log('[usePartnerData] Partner loaded:', data);
             setPartner(data);
@@ -69,7 +92,28 @@ export function usePartnerData(partnerId: string) {
         }
     };
 
-    return { partner, loading, error, refetch: fetchPartner, updatePartner };
+    const upsertPartner = async (partnerData: Partial<Partner>) => {
+        try {
+            console.log('[usePartnerData] Upserting partner:', partnerData);
+            // If we don't have an ID, use the auth user's ID
+            const idToUse = partnerData.id || partnerId;
+
+            const { data, error: upsertError } = await supabase
+                .from('partners')
+                .upsert({ ...partnerData, id: idToUse })
+                .select()
+                .single();
+
+            if (upsertError) throw upsertError;
+            setPartner(data);
+            return { data, error: null };
+        } catch (err) {
+            console.error('[usePartnerData] Upsert error:', err);
+            return { data: null, error: err as Error };
+        }
+    };
+
+    return { partner, loading, error, refetch: fetchPartner, updatePartner, upsertPartner };
 }
 
 export function usePartnerServices(partnerId: string) {
@@ -86,6 +130,14 @@ export function usePartnerServices(partnerId: string) {
         try {
             setLoading(true);
             console.log('[usePartnerServices] Fetching services for:', partnerId);
+
+            // MODO DEMO
+            if (partnerId.startsWith('00000000')) {
+                console.log('[usePartnerServices] Mock ID detected, skipping fetch');
+                setServices([]);
+                setLoading(false);
+                return;
+            }
 
             const { data, error: fetchError } = await supabase
                 .from('partner_services')

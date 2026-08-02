@@ -14,7 +14,6 @@ interface TimelineSegmentProps {
 
 export function TimelineSegment({
     dayNumber,
-    dayTitle,
     timeSlot,
     isCompleted,
     isActive,
@@ -134,7 +133,7 @@ export function DayHeader({ dayNumber, dayTitle, location, isCurrentDay }: DayHe
                     {dayTitle}
                 </h2>
                 <p className="text-gray-600 flex items-center gap-2">
-                    📍 {location}
+                    📍 {typeof location === 'object' ? (location['es'] || location['en'] || JSON.stringify(location)) : location}
                 </p>
             </div>
         </motion.div>

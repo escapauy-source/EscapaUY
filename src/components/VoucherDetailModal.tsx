@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, Users, DollarSign, MapPin } from 'lucide-react';
 import type { PartnerVoucher } from '@/types';
 import { markVoucherAsScanned } from '@/utils/voucherValidation';
+import { useCurrency } from '@/hooks/useCurrency';
 
 interface VoucherDetailModalProps {
     voucher: PartnerVoucher;
@@ -28,13 +29,17 @@ export function VoucherDetailModal({ voucher, onClose, onConfirm, partnerId }: V
         }, 1000);
     };
 
-    const getPeriodLabel = (timeSlot: 'morning' | 'afternoon' | 'evening') => {
+    const getPeriodLabel = (timeSlot: string) => {
         switch (timeSlot) {
             case 'morning': return '🌅 Mañana';
+            case 'midday': return '☀️ Mediodía';
             case 'afternoon': return '🌤️ Tarde';
             case 'evening': return '🌙 Noche';
+            default: return '🕒 Horario a coordinar';
         }
     };
+
+    const { getBidirectionalPrice } = useCurrency();
 
     return (
         <AnimatePresence>
@@ -117,17 +122,28 @@ export function VoucherDetailModal({ voucher, onClose, onConfirm, partnerId }: V
                             <div className="space-y-2">
                                 <div className="flex justify-between text-sm">
                                     <span className="text-gray-600">Total Servicio</span>
-                                    <span className="font-semibold">${voucher.totalPartnerAmount.toLocaleString()} UYU</span>
+                                    <div className="text-right">
+                                        <span className="font-semibold block">{getBidirectionalPrice(voucher.totalPartnerAmount).formattedUSD}</span>
+                                        <span className="text-xs text-gray-500">{getBidirectionalPrice(voucher.totalPartnerAmount).formattedUYU}</span>
+                                    </div>
                                 </div>
                                 <div className="flex justify-between text-sm">
                                     <span className="text-gray-600">Seña Pagada (15%)</span>
-                                    <span className="text-green-600 font-semibold">-${voucher.depositPaid.toLocaleString()}</span>
+                                    <div className="text-right">
+                                        <span className="text-green-600 font-semibold block">-{getBidirectionalPrice(voucher.depositPaid).formattedUSD}</span>
+                                        <span className="text-xs text-green-500">-{getBidirectionalPrice(voucher.depositPaid).formattedUYU}</span>
+                                    </div>
                                 </div>
                                 <div className="flex justify-between pt-2 border-t border-amber-300">
                                     <span className="font-bold text-gray-900 uppercase text-xs tracking-wider">Saldo a Cobrar</span>
-                                    <span className="text-2xl font-black" style={{ color: '#800020' }}>
-                                        ${voucher.balanceDue.toLocaleString()} UYU
-                                    </span>
+                                    <div className="text-right">
+                                        <span className="text-2xl font-black block" style={{ color: '#800020' }}>
+                                            {getBidirectionalPrice(voucher.balanceDue).formattedUSD}
+                                        </span>
+                                        <span className="text-sm font-bold text-gray-700">
+                                            {getBidirectionalPrice(voucher.balanceDue).formattedUYU}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                         </div>

@@ -336,7 +336,7 @@ export function AdminContentEnginePage() {
                                     type="text"
                                     value={partner}
                                     onChange={(e) => setPartner(e.target.value)}
-                                    placeholder="Ej: Bodega El Legado"
+                                    placeholder="Ej: Parador Mar Dulce"
                                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-[#C5A059] focus:outline-none transition-all"
                                 />
                             </div>

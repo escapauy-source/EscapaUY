@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, User, LogOut, Anchor } from 'lucide-react';
+import { Menu, X, User, LogOut } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '@/context/AppContext';
 import { WeatherWidget } from './WeatherWidget';
@@ -11,7 +11,7 @@ import { cn } from '@/utils/cn';
 export function Header() {
   const { t } = useTranslation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { isAuthenticated, user, logout, setShowAuthModal } = useApp();
+  const { isAuthenticated, user, logout, setShowAuthModal, setAuthModalRole } = useApp();
   const location = useLocation();
 
   const navLinks = [
@@ -28,13 +28,11 @@ export function Header() {
         <div className="flex items-center justify-between h-16 md:h-20">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 group">
-            <div className="w-10 h-10 bg-gradient-to-br from-ocean-500 to-ocean-700 rounded-xl flex items-center justify-center shadow-lg shadow-ocean-200 group-hover:scale-105 transition-transform">
-              <Anchor className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <span className="font-playfair text-xl font-bold text-gray-900">ESCAPA</span>
-              <span className="font-playfair text-xl font-bold text-ocean-600">UY</span>
-            </div>
+            <img
+              src="/logo.png"
+              alt="EscapaUY"
+              className="h-10 md:h-12 w-auto group-hover:scale-105 transition-transform"
+            />
           </Link>
 
           {/* Desktop Navigation */}
@@ -55,7 +53,7 @@ export function Header() {
             ))}
 
             {/* Admin Link */}
-            {isAuthenticated && user?.role === 'admin' && (
+            {isAuthenticated && user?.email === 'escapauy@gmail.com' && (
               <Link
                 to="/admin/control-tower"
                 className={cn(
@@ -81,7 +79,7 @@ export function Header() {
                   className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 hover:text-ocean-600 transition-colors"
                 >
                   <User className="w-4 h-4" />
-                  <span>{user?.fullName?.split(' ')[0] || t('header.profile')}</span>
+                  <span>{user?.user_metadata?.full_name?.split(' ')[0] || t('header.profile')}</span>
                 </Link>
                 <button
                   onClick={logout}
@@ -93,7 +91,10 @@ export function Header() {
               </div>
             ) : (
               <button
-                onClick={() => setShowAuthModal(true)}
+                onClick={() => {
+                  setAuthModalRole('tourist');
+                  setShowAuthModal(true);
+                }}
                 className="hidden md:flex items-center gap-2 px-5 py-2.5 bg-ocean-600 text-white text-sm font-medium rounded-full hover:bg-ocean-700 transition-colors shadow-lg shadow-ocean-200"
               >
                 <User className="w-4 h-4" />

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
 import { usePartnerData } from '@/hooks/usePartnerData';
 import {
@@ -8,19 +8,27 @@ import {
 import { CatalogManager } from '@/components/partner/CatalogManager';
 import { VoucherQRScanner } from '@/components/partner/VoucherQRScanner';
 import { PartnerLegalConfig } from '@/components/partner/PartnerLegalConfig';
-import { AvailabilityScheduler } from '@/components/partner/AvailabilityScheduler';
+import { BookingList } from '@/components/partner/BookingList';
 
 type ActiveTab = 'dashboard' | 'reservas' | 'vidriera' | 'qr' | 'configuracion';
 
-// Fallback partner ID for debug mode
-const DEBUG_PARTNER_ID = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
+// Fallback partner ID for debug mode (Mar Dulce - Artilleros)
+const DEBUG_PARTNER_ID = 'd290f1ee-6c54-4b01-90e6-d701748f0856';
 
 export function PartnerDashboardPage() {
+  console.log('[DEBUG] PartnerDashboardPage: Componente montado');
   const { user, logout } = useApp();
   const [activeTab, setActiveTab] = useState<ActiveTab>('reservas'); // Iniciamos en Reservas por defecto
 
-  // Use real partner data from Supabase
-  const partnerId = user?.id || DEBUG_PARTNER_ID;
+
+
+  // Debug state for switching partners without login
+  // Initialize from LocalStorage if available, otherwise use default
+  const [debugPartnerId, setDebugPartnerId] = useState(() => {
+    return localStorage.getItem('escapauy_debug_active_partner') || DEBUG_PARTNER_ID;
+  });
+  const partnerId = user?.id || debugPartnerId;
+
   const { partner, loading, error, updatePartner } = usePartnerData(partnerId);
 
   // Manejo de guardado de disponibilidad
@@ -32,38 +40,6 @@ export function PartnerDashboardPage() {
       if (updateError) throw updateError;
     } catch (err) {
       console.error('Error saving availability:', err);
-    }
-  };
-
-  // Wrap renderTabContent with error handling
-  const SafeRenderTabContent = () => {
-    try {
-      return renderTabContent();
-    } catch (err) {
-      console.error('[PartnerDashboard] Render error:', err);
-      return (
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-12 text-center max-w-2xl mx-auto">
-          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-red-900 mb-2">Algo salió mal al cargar esta sección</h2>
-          <p className="text-red-700 mb-6 font-medium">
-            Hubo un error al procesar los datos de esta pestaña. No te preocupes, tus datos están seguros.
-          </p>
-          <div className="flex gap-4 justify-center">
-            <button
-              onClick={() => setActiveTab('dashboard')}
-              className="px-6 py-3 bg-[#1A2B48] text-white rounded-xl hover:bg-[#142034] transition-colors"
-            >
-              Volver al Inicio
-            </button>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-6 py-3 border border-red-300 text-red-700 rounded-xl hover:bg-red-100 transition-colors"
-            >
-              Recargar Página
-            </button>
-          </div>
-        </div>
-      );
     }
   };
 
@@ -131,15 +107,20 @@ export function PartnerDashboardPage() {
         );
 
       case 'reservas':
-        return (
-          <div className="bg-white rounded-2xl p-12 shadow-sm border border-gray-100 text-center">
-            <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
-              <FileText className="w-10 h-10 text-gray-300" />
+        return partnerId ? (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Gestión de Reservas</h2>
+              <p className="text-gray-500">
+                Visualiza y gestiona las reservas confirmadas de tus servicios.
+              </p>
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Gestión de Reservas</h2>
-            <p className="text-gray-500 max-w-sm mx-auto">
-              Aún no tienes registros de reservas procesadas. Una vez que los turistas compren tus servicios, aparecerán aquí.
-            </p>
+            <BookingList partnerId={partnerId} />
+          </div>
+        ) : (
+          <div className="p-8 bg-red-50 rounded-xl border border-red-200 text-red-900">
+            <p className="font-bold">Error de Autenticación</p>
+            <p>No se pudo identificar tu cuenta de partner.</p>
           </div>
         );
 
@@ -170,20 +151,6 @@ export function PartnerDashboardPage() {
             <section>
               <PartnerLegalConfig partnerId={partnerId} initialData={partner} />
             </section>
-
-            <section className="pt-8 border-t border-gray-200">
-              <div className="mb-6">
-                <h3 className="text-2xl font-bold text-gray-900">Calendario y Horarios</h3>
-                <p className="text-gray-600 mt-1">Configura cuándo está abierto tu establecimiento para recibir turistas.</p>
-              </div>
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <AvailabilityScheduler
-                  partnerId={partnerId}
-                  initialSettings={partner?.availability_settings}
-                  onSave={handleSaveAvailability}
-                />
-              </div>
-            </section>
           </div>
         );
 
@@ -194,6 +161,38 @@ export function PartnerDashboardPage() {
             <p className="text-gray-500">Selecciona una opción del menú lateral.</p>
           </div>
         );
+    }
+  };
+
+  // Wrap renderTabContent with error handling
+  const SafeRenderTabContent = () => {
+    try {
+      return renderTabContent();
+    } catch (err) {
+      console.error('[PartnerDashboard] Render error:', err);
+      return (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-12 text-center max-w-2xl mx-auto">
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-red-900 mb-2">Algo salió mal al cargar esta sección</h2>
+          <p className="text-red-700 mb-6 font-medium">
+            Hubo un error al procesar los datos de esta pestaña. No te preocupes, tus datos están seguros.
+          </p>
+          <div className="flex gap-4 justify-center">
+            <button
+              onClick={() => setActiveTab('dashboard')}
+              className="px-6 py-3 bg-[#1A2B48] text-white rounded-xl hover:bg-[#142034] transition-colors"
+            >
+              Volver al Inicio
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-6 py-3 border border-red-300 text-red-700 rounded-xl hover:bg-red-100 transition-colors"
+            >
+              Recargar Página
+            </button>
+          </div>
+        </div>
+      );
     }
   };
 
@@ -245,10 +244,25 @@ export function PartnerDashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Debug info */}
-      {partnerId === DEBUG_PARTNER_ID && (
-        <div className="bg-yellow-400 text-yellow-900 p-2 text-center text-xs">
-          🔧 Debug Mode - Usando partner de prueba: {partner?.business_name || partner?.name || 'Mock Partner'}
+      {/* Debug Switcher - Only visible if not logged in really */}
+      {!user && (
+        <div className="bg-yellow-400 text-yellow-900 p-2 text-center text-xs flex items-center justify-center gap-4">
+          <span>🔧 MODO DEBUG - Visualizando como:</span>
+          <select
+            value={debugPartnerId}
+            onChange={(e) => {
+              const newValue = e.target.value;
+              setDebugPartnerId(newValue);
+              // Save to storage specifically for this switcher
+              localStorage.setItem('escapauy_debug_active_partner', newValue);
+            }}
+            className="bg-white/50 border border-yellow-600 rounded px-2 py-1 font-bold text-yellow-900"
+          >
+            <option value="d290f1ee-6c54-4b01-90e6-d701748f0857">Club Social Rosario (Default)</option>
+            <option value="d290f1ee-6c54-4b01-90e6-d701748f0859">Turismo Nueva Helvecia</option>
+            <option value="d290f1ee-6c54-4b01-90e6-d701748f0858">Turismo Juan Lacaze</option>
+            <option value="d290f1ee-6c54-4b01-90e6-d701748f0856">Mar Dulce (Artilleros)</option>
+          </select>
         </div>
       )}
 
