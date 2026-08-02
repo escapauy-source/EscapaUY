@@ -1,12 +1,16 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { AppProvider } from '@/context/AppContext';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AppProvider, useApp } from '@/context/AppContext';
 import { Toaster } from 'react-hot-toast';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
+import { FooterMVP } from '@/components/FooterMVP';
 import { AuthModal } from '@/components/AuthModal';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 import { LandingPage } from '@/pages/LandingPage';
+import { LandingMVP } from '@/pages/LandingMVP';
+import { WizardPage } from '@/pages/WizardPage';
+import { ItinerarioSimuladoPage } from '@/pages/ItinerarioSimuladoPage';
 import { AdnViajeroPage } from '@/pages/AdnViajeroPage';
 import { ExplorePage } from '@/pages/ExplorePage';
 import { ItineraryBuilderPage } from '@/pages/ItineraryBuilderPage';
@@ -25,26 +29,24 @@ import { AdminBlogPage } from '@/pages/AdminBlogPage';
 import { AdminContentEnginePage } from '@/pages/AdminContentEnginePage';
 import { BlogListPage } from '@/pages/BlogListPage';
 import { BlogPostPage } from '@/pages/BlogPostPage';
+import { ColoniaQuehacerPage } from '@/pages/seo/ColoniaQuehacerPage';
+import { CarmeloBodegasPage } from '@/pages/seo/CarmeloBodegasPage';
+import { EscapadaBuenosAiresPage } from '@/pages/seo/EscapadaBuenosAiresPage';
+import { HotelesColoniaPage } from '@/pages/seo/HotelesColoniaPage';
+import { EnoturismoUruguayPage } from '@/pages/seo/EnoturismoUruguayPage';
 import { Shield } from 'lucide-react';
 
-import { Navigate, useLocation } from 'react-router-dom';
-import { useApp } from '@/context/AppContext';
-
-// Layout component
 function Layout({ children, showFooter = true }: { children: React.ReactNode; showFooter?: boolean }) {
   return (
     <div className="min-h-screen flex flex-col font-inter">
       <Header />
-      <main className="flex-1">
-        {children}
-      </main>
+      <main className="flex-1">{children}</main>
       {showFooter && <Footer />}
       <AuthModal />
     </div>
   );
 }
 
-// Layout for pages without header (like checkout success)
 function MinimalLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen font-inter">
@@ -54,18 +56,23 @@ function MinimalLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Guard for Admin Routes
+function MVPLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen flex flex-col" style={{ background: '#1A1F2C' }}>
+      <main className="flex-1">{children}</main>
+      <FooterMVP />
+    </div>
+  );
+}
+
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated } = useApp();
   const location = useLocation();
-
-  // Verificación estricta: SOLO este correo electrónico puede acceder a la Torre de Control
   const isAdmin = isAuthenticated && user?.email === 'escapauy@gmail.com';
 
   if (!isAuthenticated) {
     return <Navigate to="/" state={{ from: location }} replace />;
   }
-
   if (!isAdmin) {
     return (
       <Layout>
@@ -75,122 +82,77 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
           </div>
           <h2 className="text-3xl font-bold mb-4">Acceso Denegado</h2>
           <p className="text-gray-600 max-w-md mb-8">
-            Lo sentimos, esta sección está restringida solo para el personal autorizado de EscapaUY (Torre de Control).
+            Esta sección está restringida para el personal autorizado de EscapaUY.
           </p>
-          <button
-            onClick={() => window.location.href = '/'}
-            className="px-8 py-3 bg-[#2D2D2D] text-white rounded-full font-bold hover:bg-black transition-all"
-          >
+          <button onClick={() => (window.location.href = '/')}
+            className="px-8 py-3 bg-[#2D2D2D] text-white rounded-full font-bold hover:bg-black transition-all">
             Volver al Inicio
           </button>
         </div>
       </Layout>
     );
   }
-
   return <>{children}</>;
 }
 
-export function App() {
-  console.log('[DEBUG] App rendering...');
+function AppRoutes() {
+  const { user } = useApp();
+  const location = useLocation();
+  console.log('[DEBUG] App rendering at:', location.pathname);
+  if (user) console.log('[DEBUG] rol:', (user as any).role);
+
   return (
-    <BrowserRouter>
-      <AppProvider>
-        <ErrorBoundary>
-          <Toaster position="top-right" />
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<Layout><LandingPage /></Layout>} />
+    <ErrorBoundary>
+      <Toaster position="top-right" />
+      <Routes>
+        {/* MVP Publico - Luxury Neo-Minimalism */}
+        <Route path="/mvp" element={<MVPLayout><LandingMVP /></MVPLayout>} />
+        <Route path="/wizard" element={<MVPLayout><WizardPage /></MVPLayout>} />
+        <Route path="/itinerario-simulado" element={<MVPLayout><ItinerarioSimuladoPage /></MVPLayout>} />
 
-            {/* Critical Routes with Error Boundaries */}
-            <Route
-              path="/adn-viajero"
-              element={
-                <Layout showFooter={false}>
-                  <ErrorBoundary>
-                    <AdnViajeroPage />
-                  </ErrorBoundary>
-                </Layout>
-              }
-            />
+        {/* Legal MVP */}
+        <Route path="/terminos" element={<Layout><TermsPage /></Layout>} />
+        <Route path="/privacidad" element={<Layout><PrivacyPage /></Layout>} />
+        <Route path="/defensa-consumidor" element={<Layout><ConsumerPage /></Layout>} />
 
-            <Route path="/explore" element={<Layout><ExplorePage /></Layout>} />
+        {/* Sistema existente */}
+        <Route path="/" element={<Layout><LandingPage /></Layout>} />
+        <Route path="/adn-viajero" element={<Layout showFooter={false}><ErrorBoundary><AdnViajeroPage /></ErrorBoundary></Layout>} />
+        <Route path="/explore" element={<Layout><ExplorePage /></Layout>} />
+        <Route path="/itinerary-builder" element={<Layout showFooter={false}><ErrorBoundary><ItineraryBuilderPage /></ErrorBoundary></Layout>} />
+        <Route path="/actividad/:id" element={<Layout><ActivityDetailPage /></Layout>} />
+        <Route path="/itinerario/:id" element={<Layout><ItineraryPage /></Layout>} />
+        <Route path="/checkout" element={<Layout showFooter={false}><ErrorBoundary><CheckoutPage /></ErrorBoundary></Layout>} />
+        <Route path="/checkout/success" element={<MinimalLayout><CheckoutSuccessPage /></MinimalLayout>} />
+        <Route path="/profile" element={<Layout><ProfilePage /></Layout>} />
+        <Route path="/debug-partner" element={<MinimalLayout><DebugPartnerPage /></MinimalLayout>} />
+        <Route path="/partner/dashboard" element={<Layout showFooter={false}><PartnerDashboardPage /></Layout>} />
+        <Route path="/legal/terminos" element={<Layout><TermsPage /></Layout>} />
+        <Route path="/legal/privacidad" element={<Layout><PrivacyPage /></Layout>} />
+        <Route path="/legal/consumidor" element={<Layout><ConsumerPage /></Layout>} />
+        <Route path="/admin/control-tower" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+        <Route path="/admin/blog" element={<AdminRoute><AdminBlogPage /></AdminRoute>} />
+        <Route path="/admin/content-engine" element={<AdminRoute><AdminContentEnginePage /></AdminRoute>} />
+        <Route path="/blog" element={<Layout><BlogListPage /></Layout>} />
+        <Route path="/blog/:slug" element={<Layout><BlogPostPage /></Layout>} />
 
-            <Route
-              path="/itinerary-builder"
-              element={
-                <Layout showFooter={false}>
-                  <ErrorBoundary>
-                    <ItineraryBuilderPage />
-                  </ErrorBoundary>
-                </Layout>
-              }
-            />
+        {/* SEO Landing Pages */}
+        <Route path="/colonia/que-hacer" element={<ColoniaQuehacerPage />} />
+        <Route path="/carmelo/bodegas" element={<CarmeloBodegasPage />} />
+        <Route path="/escapada-desde-buenos-aires" element={<EscapadaBuenosAiresPage />} />
+        <Route path="/hoteles/colonia" element={<HotelesColoniaPage />} />
+        <Route path="/experiencias/enoturismo-uruguay" element={<EnoturismoUruguayPage />} />
 
-            <Route path="/actividad/:id" element={<Layout><ActivityDetailPage /></Layout>} />
-            <Route path="/itinerario/:id" element={<Layout><ItineraryPage /></Layout>} />
+        <Route path="*" element={<Layout><LandingPage /></Layout>} />
+      </Routes>
+    </ErrorBoundary>
+  );
+}
 
-            {/* Checkout Routes with Error Boundary */}
-            <Route
-              path="/checkout"
-              element={
-                <Layout showFooter={false}>
-                  <ErrorBoundary>
-                    <CheckoutPage />
-                  </ErrorBoundary>
-                </Layout>
-              }
-            />
-            <Route path="/checkout/success" element={<MinimalLayout><CheckoutSuccessPage /></MinimalLayout>} />
-
-            {/* User Routes */}
-            <Route path="/profile" element={<Layout><ProfilePage /></Layout>} />
-
-            {/* Partner Routes */}
-            {/* DEBUG: Development bypass - removes authentication */}
-            <Route path="/debug-partner" element={<MinimalLayout><DebugPartnerPage /></MinimalLayout>} />
-            <Route path="/partner/dashboard" element={<Layout showFooter={false}><PartnerDashboardPage /></Layout>} />
-
-            {/* Legal Routes */}
-            <Route path="/legal/terminos" element={<Layout><TermsPage /></Layout>} />
-            <Route path="/legal/privacidad" element={<Layout><PrivacyPage /></Layout>} />
-            <Route path="/legal/consumidor" element={<Layout><ConsumerPage /></Layout>} />
-
-            {/* Admin Routes */}
-            <Route
-              path="/admin/control-tower"
-              element={
-                <AdminRoute>
-                  <AdminDashboard />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/admin/blog"
-              element={
-                <AdminRoute>
-                  <AdminBlogPage />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/admin/content-engine"
-              element={
-                <AdminRoute>
-                  <AdminContentEnginePage />
-                </AdminRoute>
-              }
-            />
-
-            {/* Blog Routes */}
-            <Route path="/blog" element={<Layout><BlogListPage /></Layout>} />
-            <Route path="/blog/:slug" element={<Layout><BlogPostPage /></Layout>} />
-
-            {/* Fallback */}
-            <Route path="*" element={<Layout><LandingPage /></Layout>} />
-          </Routes>
-        </ErrorBoundary>
-      </AppProvider>
-    </BrowserRouter>
+export function App() {
+  return (
+    <AppProvider>
+      <AppRoutes />
+    </AppProvider>
   );
 }

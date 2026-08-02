@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "build:ssg": "vite build && npm run prerender",
+    "preview": "vite preview",
+    "prerender": "npx esbuild scripts/prerender.ts --bundle --platform=node --format=cjs --jsx=automatic --alias:@=./src --outfile=.prerender-tmp.cjs --log-level=error && PROJECT_ROOT=$(pwd) node .prerender-tmp.cjs && rm .prerender-tmp.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.91.1",
@@ -20,6 +22,7 @@
     "qrcode.react": "^4.2.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-helmet-async": "^3.0.0",
     "react-hot-toast": "^2.6.0",
     "react-i18next": "^16.5.3",
     "react-markdown": "^10.1.0",
@@ -35,7 +38,6 @@
     "@vitejs/plugin-react": "5.1.1",
     "tailwindcss": "4.1.17",
     "typescript": "5.9.3",
-    "vite": "7.2.4",
-    "vite-plugin-singlefile": "2.3.0"
+    "vite": "7.2.4"
   }
 }

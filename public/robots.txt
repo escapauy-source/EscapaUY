@@ -1,0 +1,19 @@
+User-agent: *
+
+# Permitir todo el contenido público
+Allow: /
+
+# Bloquear rutas internas y de administración
+Disallow: /admin/
+Disallow: /partner/dashboard
+Disallow: /debug-partner
+Disallow: /checkout
+Disallow: /checkout/success
+Disallow: /profile
+Disallow: /itinerario/
+Disallow: /itinerary-builder
+Disallow: /wizard
+Disallow: /mvp
+
+# Sitemap
+Sitemap: https://www.escapauy.com/sitemap.xml

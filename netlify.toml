@@ -1,0 +1,50 @@
+[build]
+  command   = "npm run build:ssg"
+  publish   = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# Servir HTML pre-renderizado para las páginas SEO
+[[redirects]]
+  from   = "/colonia/que-hacer"
+  to     = "/colonia/que-hacer/index.html"
+  status = 200
+
+[[redirects]]
+  from   = "/carmelo/bodegas"
+  to     = "/carmelo/bodegas/index.html"
+  status = 200
+
+[[redirects]]
+  from   = "/escapada-desde-buenos-aires"
+  to     = "/escapada-desde-buenos-aires/index.html"
+  status = 200
+
+[[redirects]]
+  from   = "/hoteles/colonia"
+  to     = "/hoteles/colonia/index.html"
+  status = 200
+
+[[redirects]]
+  from   = "/experiencias/enoturismo-uruguay"
+  to     = "/experiencias/enoturismo-uruguay/index.html"
+  status = 200
+
+# SPA fallback para todas las demás rutas
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
+
+# Cache de assets estáticos
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/sitemap.xml"
+  [headers.values]
+    Content-Type  = "application/xml"
+    Cache-Control = "public, max-age=86400"
